@@ -4,7 +4,7 @@
    "license": "MIT",
    "repository": {
       "type": "https",
-      "url": "https://github.com/LaxarJS/ax-log-acitity.git"
+      "url": "https://github.com/LaxarJS/ax-log-activity.git"
    },
    "dependencies": {
       "laxar": "~1.2.0",
