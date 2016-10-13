@@ -2,6 +2,9 @@
 
 ## Last Changes
 
+
+## v3.0.2
+
 [#3](https://github.com/LaxarJS/ax-log-activity/issues/3): Fixed buffer: log items aren't lost during navigation anymore
 
 
