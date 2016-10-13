@@ -49,6 +49,31 @@
                         "default": 100
                      }
                   }
+               },
+
+               "retry": {
+                  "type": "object",
+                  "description": "Specifiy if the activity should retry to submit messages",
+                  "default": {
+                     "enabled": false
+                  },
+                  "properties": {
+                     "enabled": {
+                        "type": "boolean",
+                        "description": "Enable or disable the feature.",
+                        "default": false
+                     },
+                     "seconds": {
+                        "type": "integer",
+                        "description": "The time interval in seconds between the retries. Should be higher than 'threshold.seconds'.",
+                        "default": 180
+                     },
+                     "retries": {
+                        "type": "integer",
+                        "description": "Number of retries until messages are deleted.",
+                        "default": 10
+                     }
+                  }
                }
             }
          }

@@ -68,8 +68,6 @@ define( [
          widgetContext.clearBuffer();
       } );
 
-
-
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       describe( 'with feature logging', function() {
@@ -83,6 +81,8 @@ define( [
                   ++numberOfMessageBatches;
                   lastRequestBody = JSON.parse( request.data );
                }
+               var deferred = $.Deferred().resolve(request);
+               return deferred.promise();
             } );
          } );
 
@@ -516,40 +516,224 @@ define( [
 
          var messageToLose = 'laxar-log-activity spec: This message MUST NOT be re-sent';
          var messageToKeep = 'laxar-log-activity spec: This message MUST be sent';
+         var messageToSentDirect = 'laxar-log-activity spec: This message MUST be sent';
          var failingPostSpy;
          var workingPostSpy;
-
-         createSetup( {}, 'http://test-repo:4711' );
+         var tresholdSeconds = 100;
+         var retrySeconds = 100;
+         var retries = 4;
 
          beforeEach( function() {
-            $.ajax = failingPostSpy = jasmine.createSpy( 'failingPostSpy' ).and.callFake( function() {} );
-
-            ax.log.info( messageToLose + ' 0' );
-            ax.log.info( messageToLose + ' 1' );
-            ax.log.info( messageToLose + ' 2' );
-            jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 );
-
-            $.ajax = workingPostSpy = jasmine.createSpy( 'workingPostSpy' ).and.callFake( function( request ) {
-               var method = request.type.toLowerCase();
-               if( method === 'post' ) {
-                  ++numberOfMessageBatches;
-                  lastRequestBody = JSON.parse( request.data );
-               }
+            $.ajax = failingPostSpy = jasmine.createSpy( 'failingPostSpy' ).and.callFake( function() {
+               var deferred = $.Deferred().reject( 'failed' );
+               return deferred.promise();
             } );
-            ax.log.info( messageToKeep + ' 0' );
-            ax.log.info( messageToKeep + ' 1' );
-            jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 );
          } );
 
          /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-         it( 'discards failed messages (R1.12)', function() {
-            expect( failingPostSpy.calls.count() ).toEqual( 1 );
-            expect( workingPostSpy.calls.count() ).toEqual( 1 );
-            expect( lastRequestBody.messages.map( text ) ).toEqual( [
-               messageToKeep + ' 0',
-               messageToKeep + ' 1'
-            ] );
+         describe( 'and with retry enabled', function() {
+
+            createSetup(
+               {
+                  logging: {
+                     threshold: {
+                        seconds: tresholdSeconds
+                     },
+                     retry: {
+                        enabled: true,
+                        seconds: retrySeconds,
+                        retries: retries
+                     }
+                  }
+               },
+               'http://test-repo:4711'
+            );
+
+            beforeEach( function() {
+               ax.log.info( messageToLose + ' 0' );
+               jasmine.clock().tick( tresholdSeconds * 1000 );
+            } );
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
+            afterEach( function() {
+               jasmine.clock().tick( retrySeconds * 1000 * ( retries + 1 ) );
+            } );
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
+            it( 'retries to submit the failed messages after a configured time seconds (R1.20)', function() {
+               expect( failingPostSpy.calls.count() ).toEqual( 1 );
+               jasmine.clock().tick( retrySeconds * 1000 );
+               expect( failingPostSpy.calls.count() ).toEqual( 2 );
+               jasmine.clock().tick( retrySeconds * 1000 );
+               expect( failingPostSpy.calls.count() ).toEqual( 3 );
+            } );
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
+            it( 'retries to submit the failed messages only a configured number of retries (R1.20)', function() {
+               expect( failingPostSpy.calls.count() ).toEqual( 1 );
+               jasmine.clock().tick( retrySeconds * 1000 );
+               expect( failingPostSpy.calls.count() ).toEqual( 2 );
+               jasmine.clock().tick( retrySeconds * 1000 * retries + 1 );
+               expect( failingPostSpy.calls.count() ).toEqual( retries + 1 );
+               jasmine.clock().tick( retrySeconds * 1000 );
+               expect( failingPostSpy.calls.count() ).toEqual( retries + 1 );
+            } );
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
+            describe( 'and the service is available again and new messages are logged', function() {
+
+               beforeEach( function() {
+                  $.ajax = workingPostSpy = jasmine.createSpy( 'workingPostSpy' ).and.callFake( function( request ) {
+                     var method = request.type.toLowerCase();
+                     if( method === 'post' ) {
+                        ++numberOfMessageBatches;
+                        lastRequestBody = JSON.parse( request.data );
+                     }
+                     var deferred = $.Deferred().resolve(request);
+                     return deferred.promise();
+                  } );
+                  ax.log.info( messageToSentDirect + ' 0' );
+                  ax.log.info( messageToSentDirect + ' 1' );
+               } );
+
+               //////////////////////////////////////////////////////////////////////////////////////////////////
+
+               it( 'retries to submit the failed messages without the new collected ones (R1.20)', function() {
+                  expect( failingPostSpy.calls.count() ).toEqual( 1 );
+                  jasmine.clock().tick( retrySeconds * 1000 );
+                  jasmine.clock().tick( tresholdSeconds * 1000 );
+                  expect( workingPostSpy.calls.count() ).toEqual( 2 );
+               } );
+
+            } );
+         } );
+
+         /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+         describe( 'without feature retry', function() {
+
+            createSetup( {}, 'http://test-repo:4711' );
+
+            beforeEach( function() {
+               ax.log.info( messageToLose + ' 0' );
+               ax.log.info( messageToLose + ' 1' );
+               ax.log.info( messageToLose + ' 2' );
+               jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 );
+
+               $.ajax = workingPostSpy = jasmine.createSpy( 'workingPostSpy' ).and.callFake( function( request ) {
+                  var method = request.type.toLowerCase();
+                  if( method === 'post' ) {
+                     ++numberOfMessageBatches;
+                     lastRequestBody = JSON.parse( request.data );
+                  }
+                  var deferred = $.Deferred().resolve(request);
+                  return deferred.promise();
+               } );
+
+               ax.log.info( messageToKeep + ' 0' );
+               ax.log.info( messageToKeep + ' 1' );
+               jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 );
+            } );
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
+            it( 'discards failed messages (R1.12)', function() {
+               expect( failingPostSpy.calls.count() ).toEqual( 1 );
+               expect( workingPostSpy.calls.count() ).toEqual( 1 );
+               expect( lastRequestBody.messages.map( text ) ).toEqual( [
+                  messageToKeep + ' 0',
+                  messageToKeep + ' 1'
+               ] );
+            } );
+
+         } );
+
+         /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+         describe( 'and with retry enabled and the request policy "PER_MESSAGE"', function() {
+
+            createSetup(
+               {
+                  logging: {
+                     threshold: {
+                        seconds: tresholdSeconds
+                     },
+                     requestPolicy: 'PER_MESSAGE',
+                     retry: {
+                        enabled: true,
+                        seconds: retrySeconds,
+                        retries: retries
+                     }
+                  }
+               },
+               'http://test-repo:4711'
+            );
+
+            beforeEach( function() {
+               ax.log.info( messageToLose + ' 0' );
+               jasmine.clock().tick( tresholdSeconds * 1000 );
+            } );
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
+            afterEach( function() {
+               jasmine.clock().tick( retrySeconds * 1000 * retries );
+            } );
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
+            it( 'retries to submit the failed messages after a configured time interval (R1.20)', function() {
+               expect( failingPostSpy.calls.count() ).toEqual( 1 );
+               jasmine.clock().tick( retrySeconds * 1000 );
+               expect( failingPostSpy.calls.count() ).toEqual( 2 );
+            } );
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
+            it( 'retries to submit the failed messages only a configured number of retries (R1.20)', function() {
+               expect( failingPostSpy.calls.count() ).toEqual( 1 );
+               jasmine.clock().tick( retrySeconds * 1000 * retries );
+               expect( failingPostSpy.calls.count() ).toEqual( retries + 1 );
+               jasmine.clock().tick( retrySeconds * 1000 );
+               expect( failingPostSpy.calls.count() ).toEqual( retries + 1 );
+            } );
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
+            describe( 'and the service is available again and new messages are logged', function() {
+
+               beforeEach( function() {
+                  $.ajax = workingPostSpy = jasmine.createSpy( 'workingPostSpy' ).and.callFake(
+                     function( request ) {
+                        var method = request.type.toLowerCase();
+                        if( method === 'post' ) {
+                           ++numberOfMessageBatches;
+                           lastRequestBody = JSON.parse( request.data );
+                        }
+                        var deferred = $.Deferred().resolve(request);
+                        return deferred.promise();
+                     }
+                  );
+                  ax.log.info( messageToSentDirect + ' 0' );
+                  ax.log.info( messageToSentDirect + ' 1' );
+
+               } );
+
+               ///////////////////////////////////////////////////////////////////////////////////////////////
+
+               it( 'retries to submit the failed messages without the new collected ones (R1.20)', function() {
+                  expect( failingPostSpy.calls.count() ).toEqual( 1 );
+                  jasmine.clock().tick( retrySeconds * 1000 );
+                  jasmine.clock().tick( tresholdSeconds * 1000 );
+                  expect( workingPostSpy.calls.count() ).toEqual( 3 );
+               } );
+
+            } );
          } );
       } );
    } );
