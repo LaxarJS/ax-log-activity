@@ -3,6 +3,7 @@
 ## Last Changes
 
 
+[#3](https://github.com/LaxarJS/ax-log-activity/issues/3): Fixed buffer: log items aren't lost during navigation anymore
 [#2](https://github.com/LaxarJS/ax-log-activity/issues/2): Fixed repository URL in `bower.json`
 
 

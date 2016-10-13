@@ -65,7 +65,10 @@ define( [
          testEventBus.flush();
          jasmine.clock().uninstall();
          jasmine.DEFAULT_TIMEOUT_INTERVAL = originalTimeout;
+         widgetContext.clearBuffer();
       } );
+
+
 
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 

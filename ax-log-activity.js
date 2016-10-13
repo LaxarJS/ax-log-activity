@@ -15,11 +15,16 @@ define( [
 
    var formatMessage = createMessageFormatter();
 
+   var buffer_ = [];
+
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    var injections = [ 'axContext' ];
 
    var logController = function( context ) {
+
+      context.clearBuffer = function() { buffer_.length = 0; }; //function for the spec tests
+
       if( !context.features.logging.enabled ) {
          return;
       }
@@ -32,7 +37,6 @@ define( [
       var waitMilliseconds = context.features.logging.threshold.seconds * 1000;
       var waitMessages = context.features.logging.threshold.messages;
 
-      var buffer_ = [];
       // Collect log messages and submit them periodically:
       ax.log.addLogChannel( handleLogItem );
       var timeout = window.setTimeout( submit, waitMilliseconds );
