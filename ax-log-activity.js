@@ -16,6 +16,7 @@ define( [
    var formatMessage = createMessageFormatter();
 
    var buffer_ = [];
+   var resendBuffer = [];
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -37,12 +38,19 @@ define( [
       var waitMilliseconds = context.features.logging.threshold.seconds * 1000;
       var waitMessages = context.features.logging.threshold.messages;
 
+      var resendTimeout;
+      if( context.features.logging.retry.enabled ) {
+         var resendMilliseconds = context.features.logging.retry.interval * 1000;
+         var resendRetries = context.features.logging.retry.retries;
+      }
+
       // Collect log messages and submit them periodically:
       ax.log.addLogChannel( handleLogItem );
       var timeout = window.setTimeout( submit, waitMilliseconds );
       context.eventBus.subscribe( 'endLifecycleRequest', function() {
          ax.log.removeLogChannel( handleLogItem );
          window.clearTimeout( timeout );
+         window.clearTimeout( resendTimeout );
       } );
 
       // Log error events:
@@ -55,6 +63,7 @@ define( [
       $( window ).on( 'beforeunload.laxar-log-activity', function() {
          submit( true );
          window.clearTimeout( timeout );
+         window.clearTimeout( resendTimeout );
       } );
 
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -141,7 +150,15 @@ define( [
             }
             message.source = document.location.origin;
             var requestBody = JSON.stringify( message );
-            postTo( logResourceUrl_, requestBody, synchronously );
+            postTo( logResourceUrl_, requestBody, synchronously ).then( function() {},
+               function() {
+                  if( context.features.logging.retry.enabled && !synchronously ) {
+                     resendBuffer.push( { requestBody: requestBody, retries: 0 } );
+                     window.clearTimeout( resendTimeout );
+                     resendTimeout = window.setTimeout( resendMessages, resendMilliseconds );
+                  }
+               }
+            );
          } );
 
          buffer_ = [];
@@ -150,15 +167,23 @@ define( [
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       function submitBatch( synchronously ) {
-         var promises = [];
          window.clearTimeout( timeout );
          timeout = window.setTimeout( submitBatch, waitMilliseconds );
          if( !buffer_.length ) {
             return;
          }
+
          var requestBody = prepareRequestBody( buffer_ );
          buffer_ = [];
-         postTo( logResourceUrl_, requestBody, synchronously );
+         postTo( logResourceUrl_, requestBody, synchronously ).then( function() {},
+            function() {
+               if( context.features.logging.retry.enabled && !synchronously ) {
+                  resendBuffer.push( { requestBody: requestBody, retries: 0 } );
+                  window.clearTimeout( resendTimeout );
+                  resendTimeout = window.setTimeout( resendMessages, resendMilliseconds );
+               }
+            }
+         );
 
          /////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -174,6 +199,34 @@ define( [
                source: document.location.origin
             } );
          }
+      }
+
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      function resendMessages( synchronously ) {
+         window.clearTimeout( resendTimeout );
+         resendTimeout = window.setTimeout( resendMessages, resendMilliseconds );
+         if( resendBuffer.length === 0 ) {
+            window.clearTimeout( resendTimeout );
+            return;
+         }
+         resendBuffer.forEach( function( requestObject ) {
+            if( requestObject.retries >= resendRetries ) {
+               return;
+            }
+
+            postTo( logResourceUrl_, requestObject.requestBody, synchronously ).then(
+               function() {
+                  requestObject.retries = resendRetries;
+               },
+               function() {
+                  ++requestObject.retries;
+               }
+            );
+         } );
+         resendBuffer = resendBuffer.filter( function( requestObject ) {
+            return requestObject.retries < resendRetries;
+         } );
       }
 
       ////////////////////////////////////////////////////////////////////////////////////////////////////////

@@ -120,6 +120,9 @@ R1.19 Placeholders, whose content should anonymized, MUST NOT be replaced.
 They MUST be submitted as a separate parameter to the log service.
 The activity MUST apply other formatting instructions (beside the anonymization) on the parameters before.
 
+R1.20 The activity MUST retry sending the messages in a configurable time interval and a configurable number of tries.
+The activity MUST delete the messages after the last try of transmission, whether the transmission was successful or not.
+
 
 ## Integration
 
