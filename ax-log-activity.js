@@ -40,7 +40,7 @@ define( [
 
       var resendTimeout;
       if( context.features.logging.retry.enabled ) {
-         var resendMilliseconds = context.features.logging.retry.interval * 1000;
+         var resendMilliseconds = context.features.logging.retry.seconds * 1000;
          var resendRetries = context.features.logging.retry.retries;
       }
 
@@ -137,35 +137,6 @@ define( [
 
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-      function submitPerMessage( synchronously ) {
-         window.clearTimeout( timeout );
-         timeout = window.setTimeout( submitPerMessage, waitMilliseconds );
-         if( !buffer_.length ) {
-            return;
-         }
-
-         buffer_.forEach( function( message ) {
-            if( message.repetitions > 1 ) {
-               message.text += ' (repeated ' + message.repetitions + 'x)';
-            }
-            message.source = document.location.origin;
-            var requestBody = JSON.stringify( message );
-            postTo( logResourceUrl_, requestBody, synchronously ).then( function() {},
-               function() {
-                  if( context.features.logging.retry.enabled && !synchronously ) {
-                     resendBuffer.push( { requestBody: requestBody, retries: 0 } );
-                     window.clearTimeout( resendTimeout );
-                     resendTimeout = window.setTimeout( resendMessages, resendMilliseconds );
-                  }
-               }
-            );
-         } );
-
-         buffer_ = [];
-      }
-
-      ////////////////////////////////////////////////////////////////////////////////////////////////////////
-
       function submitBatch( synchronously ) {
          window.clearTimeout( timeout );
          timeout = window.setTimeout( submitBatch, waitMilliseconds );
@@ -203,6 +174,34 @@ define( [
 
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
+      function submitPerMessage( synchronously ) {
+         window.clearTimeout( timeout );
+         timeout = window.setTimeout( submitPerMessage, waitMilliseconds );
+         if( !buffer_.length ) {
+            return;
+         }
+
+         buffer_.forEach( function( message ) {
+            if( message.repetitions > 1 ) {
+               message.text += ' (repeated ' + message.repetitions + 'x)';
+            }
+            message.source = document.location.origin;
+            var requestBody = JSON.stringify( message );
+            postTo( logResourceUrl_, requestBody, synchronously ).then( function() {},
+               function() {
+                  if( context.features.logging.retry.enabled && !synchronously ) {
+                     resendBuffer.push( { requestBody: requestBody, retries: 0 } );
+                     window.clearTimeout( resendTimeout );
+                     resendTimeout = window.setTimeout( resendMessages, resendMilliseconds );
+                  }
+               }
+            );
+         } );
+         buffer_ = [];
+      }
+
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
       function resendMessages( synchronously ) {
          window.clearTimeout( resendTimeout );
          resendTimeout = window.setTimeout( resendMessages, resendMilliseconds );
@@ -234,14 +233,14 @@ define( [
       function postTo( url, requestBody, synchronously ) {
          $.support.cors = true;
          return $.ajax( {
-               type: 'POST',
-               url: url,
-               data: requestBody,
-               crossDomain: true,
-               async: synchronously !== true,
-               contentType: 'application/json',
-               dataType: 'json',
-               headers: { 'x-aixigo-log-tags': '[INST:' + instanceId + ']' }
+            type: 'POST',
+            url: url,
+            data: requestBody,
+            crossDomain: true,
+            async: synchronously !== true,
+            contentType: 'application/json',
+            dataType: 'json',
+            headers: { 'x-aixigo-log-tags': '[INST:' + instanceId + ']' }
          } );
       }
    };

@@ -63,10 +63,10 @@
                         "description": "Enable or disable the feature.",
                         "default": false
                      },
-                     "interval": {
+                     "seconds": {
                         "type": "integer",
-                        "description": "The time interval in seconds between the retries.",
-                        "default": 120
+                        "description": "The time interval in seconds between the retries. Should be higher than 'threshold.seconds'.",
+                        "default": 180
                      },
                      "retries": {
                         "type": "integer",

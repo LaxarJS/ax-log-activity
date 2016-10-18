@@ -490,7 +490,7 @@ define( [
                   ax.log.info( repeatedMessage );
                }
                ax.log.warn( otherMessage );
-               jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 );
+               jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1001 );
             } );
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -506,23 +506,6 @@ define( [
                expect( text( lastRequestBody.messages[ 1 ] ) ).toEqual( otherMessage );
             } );
 
-            //////////////////////////////////////////////////////////////////////////////////////////////////
-
-            describe( 'and after the configured threshold time more identical log messages are received', function() {
-
-               it( 'sends the messages in two batches (R1.14)', function() {
-                  ax.log.info( repeatedMessage );
-                  ax.log.info( repeatedMessage );
-                  jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 );
-                  expect( numberOfMessageBatches ).toEqual( 2 );
-                  expect( lastRequestBody.messages.length ).toEqual( 2 );
-
-                  var firstMessage = text( lastRequestBody.messages[ 0 ] );
-                  expect( firstMessage ).toEqual( repeatedMessage );
-                  expect( firstMessage ).not.toContain( '10x' );
-               } );
-
-            } );
          } );
 
       } );
@@ -559,7 +542,7 @@ define( [
                      },
                      retry: {
                         enabled: true,
-                        interval: retrySeconds,
+                        seconds: retrySeconds,
                         retries: retries
                      }
                   }
@@ -580,7 +563,7 @@ define( [
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'retries to submit the failed messages after a configured time interval (R1.20)', function() {
+            it( 'retries to submit the failed messages after a configured time seconds (R1.20)', function() {
                expect( failingPostSpy.calls.count() ).toEqual( 1 );
                jasmine.clock().tick( retrySeconds * 1000 );
                expect( failingPostSpy.calls.count() ).toEqual( 2 );
@@ -683,7 +666,7 @@ define( [
                      requestPolicy: 'PER_MESSAGE',
                      retry: {
                         enabled: true,
-                        interval: retrySeconds,
+                        seconds: retrySeconds,
                         retries: retries
                      }
                   }
