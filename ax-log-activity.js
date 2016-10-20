@@ -146,7 +146,7 @@ define( [
 
          var requestBody = prepareRequestBody( buffer_ );
          buffer_ = [];
-         postTo( logResourceUrl_, requestBody, synchronously ).then( function() {},
+         postTo( logResourceUrl_, requestBody, synchronously ).fail(
             function() {
                if( context.features.logging.retry.enabled && !synchronously ) {
                   resendBuffer.push( { requestBody: requestBody, retries: 0 } );
@@ -187,7 +187,7 @@ define( [
             }
             message.source = document.location.origin;
             var requestBody = JSON.stringify( message );
-            postTo( logResourceUrl_, requestBody, synchronously ).then( function() {},
+            postTo( logResourceUrl_, requestBody, synchronously ).fail(
                function() {
                   if( context.features.logging.retry.enabled && !synchronously ) {
                      resendBuffer.push( { requestBody: requestBody, retries: 0 } );
@@ -214,10 +214,11 @@ define( [
                return;
             }
 
-            postTo( logResourceUrl_, requestObject.requestBody, synchronously ).then(
+            postTo( logResourceUrl_, requestObject.requestBody, synchronously ).done(
                function() {
                   requestObject.retries = resendRetries;
-               },
+               }
+            ).fail(
                function() {
                   ++requestObject.retries;
                }
@@ -239,7 +240,6 @@ define( [
             crossDomain: true,
             async: synchronously !== true,
             contentType: 'application/json',
-            dataType: 'json',
             headers: { 'x-aixigo-log-tags': '[INST:' + instanceId + ']' }
          } );
       }
