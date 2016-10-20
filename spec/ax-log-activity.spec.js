@@ -490,7 +490,7 @@ define( [
                   ax.log.info( repeatedMessage );
                }
                ax.log.warn( otherMessage );
-               jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1001 );
+               jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 );
             } );
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
