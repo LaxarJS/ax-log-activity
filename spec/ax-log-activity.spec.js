@@ -72,10 +72,12 @@ define( [
 
       describe( 'with feature logging', function() {
 
+         var workingPostSpy;
+
          beforeEach( function() {
             // Make sure that the log threshold matches the expectations
             ax.log.setLogThreshold( 'INFO' );
-            spyOn( $, 'ajax' ).and.callFake( function( request ) {
+            $.ajax = workingPostSpy = jasmine.createSpy( 'workingPostSpy' ).and.callFake( function( request ) {
                var method = request.type.toLowerCase();
                if( method === 'post' ) {
                   ++numberOfMessageBatches;
@@ -205,9 +207,7 @@ define( [
                expect( item.text ).toEqual( 'laxar-log-activity spec: This is a [{"json":"stringified"},"array"].' );
             } );
 
-
             //////////////////////////////////////////////////////////////////////////////////////////////////
-
 
             it( 'treats the escaped backslash-escaped characters as normal text (R1.15)', function() {
                ax.log.info( 'laxar-log-activity spec: This \\[0] is not a placeholder', 4711 );
@@ -215,7 +215,6 @@ define( [
                var item = lastRequestBody.messages[ 0 ];
                expect( item.text ).toEqual( 'laxar-log-activity spec: This [0] is not a placeholder' );
             } );
-
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -735,6 +734,101 @@ define( [
 
             } );
          } );
+      } );
+
+
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      describe( 'with feature instanceId', function() {
+
+         var request_;
+         var workingPostSpy;
+
+         beforeEach( function() {
+            // Make sure that the log threshold matches the expectations
+            ax.log.setLogThreshold( 'INFO' );
+            $.ajax = workingPostSpy = jasmine.createSpy( 'workingPostSpy' ).and.callFake( function( request ) {
+               request.headers = request.headers ? request.headers : {};
+               request_ = request;
+
+               var deferred = $.Deferred().resolve(request);
+               return deferred.promise();
+            } );
+         } );
+
+         /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+         describe( 'when disabled', function(){
+
+            createSetup( {}, 'http://test-repo:4711' );
+
+            beforeEach( function() {
+               ax.log.info( 'laxar-log-activity spec: this info MUST be buffered' );
+               jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 );
+            } );
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
+            it( 'sends a headers with an empty object (R1.21)', function() {
+               // the default of headers in $.ajax is an empty object
+               expect( request_.headers ).toEqual( {} );
+            } );
+
+         } );
+
+         /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+         describe( 'when created enabled', function(){
+
+            createSetup(
+               {
+                  instanceId: {
+                     enabled: true
+                  }
+               },
+               'http://test-repo:4711'
+            );
+
+            beforeEach( function() {
+               ax.log.info( 'laxar-log-activity spec: this info MUST be buffered' );
+               jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 );
+            } );
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
+            it( 'uses the default header (R1.21)', function() {
+               expect( request_.headers[ 'x-laxar-log-tags' ] ).toBeDefined();
+            } );
+
+         } );
+
+         /////////////////////////////////////////////////////////////////////////////////////////////////////
+
+         describe( 'and a configured name for the header', function(){
+
+            createSetup(
+               {
+                  instanceId: {
+                     enabled: true,
+                     header: 'x-individual-name'
+                  }
+               },
+               'http://test-repo:4711'
+            );
+
+            beforeEach( function() {
+               ax.log.info( 'laxar-log-activity spec: this info MUST be buffered' );
+               jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 );
+            } );
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
+            it( 'uses the configured header (R1.21)', function() {
+               expect( request_.headers[ 'x-individual-name' ] ).toBeDefined();
+            } );
+
+         } );
+
       } );
    } );
 } );

@@ -34,7 +34,13 @@ define( [
          ax.log.error( 'laxar-log-activity: resourceUrl not configured' );
          return;
       }
+
       var instanceId = ax.log.gatherTags()[ 'INST' ];
+      var headers = {};
+      if( context.features.instanceId.enabled ) {
+         headers[ context.features.instanceId.header ] = '[INST:' + instanceId + ']';
+      }
+
       var waitMilliseconds = context.features.logging.threshold.seconds * 1000;
       var waitMessages = context.features.logging.threshold.messages;
 
@@ -240,7 +246,7 @@ define( [
             crossDomain: true,
             async: synchronously !== true,
             contentType: 'application/json',
-            headers: { 'x-aixigo-log-tags': '[INST:' + instanceId + ']' }
+            headers: headers
          } );
       }
    };
