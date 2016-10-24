@@ -19,6 +19,9 @@ install:
    - bower install "laxar#${LAXAR_VERSION}"
 after_success:
    - cat lcov.info | codecov
+branches:
+   except:
+      - /^feature\/.*$/
 notifications:
    irc:
       channels: "chat.freenode.net#laxarjs"
