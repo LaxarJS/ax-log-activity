@@ -7,7 +7,7 @@
    },
 
    "controls": [
-      "laxar-uikit/controls/i18n",
+      "laxar-i18n-control",
       "laxar-button-list-control"
    ],
 
