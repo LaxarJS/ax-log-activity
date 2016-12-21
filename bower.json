@@ -7,11 +7,11 @@
       "url": "https://github.com/LaxarJS/ax-log-activity.git"
    },
    "dependencies": {
-      "laxar": "~1.2.0",
+      "laxar": "^2.0.0",
       "moment": "moment#2.3.x",
       "jquery": "jquery#1.11.x"
    },
    "devDependencies": {
-      "laxar-mocks": "1.0.0"
+      "laxar-mocks": "^2.0.0"
    }
 }

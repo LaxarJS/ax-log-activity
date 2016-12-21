@@ -20,22 +20,22 @@ define( [
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   var injections = [ 'axContext' ];
+   var injections = [ 'axContext', 'axConfiguration', 'axLog', 'axGlobalLog' ];
 
-   var logController = function( context ) {
+   var logActivityController = function( context, configuration, log, globalLog ) {
 
       context.clearBuffer = function() { buffer_.length = 0; }; //function for the spec tests
 
       if( !context.features.logging.enabled ) {
          return;
       }
-      var logResourceUrl_ = ax.configuration.get( 'widgets.laxar-log-activity.resourceUrl', null );
+      var logResourceUrl_ = configuration.get( 'widgets.laxar-log-activity.resourceUrl', null );
       if( !logResourceUrl_ ) {
-         ax.log.error( 'laxar-log-activity: resourceUrl not configured' );
+         log.error( 'laxar-log-activity: resourceUrl not configured' );
          return;
       }
 
-      var instanceId = ax.log.gatherTags()[ 'INST' ];
+      var instanceId = globalLog.gatherTags()[ 'INST' ];
       var headers = {};
       if( context.features.instanceId.enabled ) {
          headers[ context.features.instanceId.header ] = '[INST:' + instanceId + ']';
@@ -51,17 +51,17 @@ define( [
       }
 
       // Collect log messages and submit them periodically:
-      ax.log.addLogChannel( handleLogItem );
+      globalLog.addLogChannel( handleLogItem );
       var timeout = window.setTimeout( submit, waitMilliseconds );
       context.eventBus.subscribe( 'endLifecycleRequest', function() {
-         ax.log.removeLogChannel( handleLogItem );
+         globalLog.removeLogChannel( handleLogItem );
          window.clearTimeout( timeout );
          window.clearTimeout( resendTimeout );
       } );
 
       // Log error events:
       context.eventBus.subscribe( 'didEncounterError', function( event ) {
-         ax.log.error( '([0]) [1]', event.code, event.message );
+         log.error( '([0]) [1]', event.code, event.message );
       } );
 
       // Submit messages before browser unload:
@@ -290,6 +290,6 @@ define( [
    return {
       name: 'ax-log-activity',
       injections: injections,
-      create: logController
+      create: logActivityController
    };
 } );
