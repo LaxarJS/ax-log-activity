@@ -5,14 +5,13 @@
  */
 define( [
    'json!../widget.json',
-   '../ax-log-activity',
-   'jquery',
+   '../laxar-log-activity',
    'laxar-mocks',
    'laxar'
-], function( descriptor, controller, $, axMocks, ax, undefined ) {
+], function( descriptor, controller, axMocks, ax, undefined ) {
    'use strict';
 
-   describe( 'A laxar-log-activity', function() {
+   describe( 'A laxar-log-activity', () => {
       var widgetEventBus;
       var widgetContext;
       var testEventBus;
@@ -25,14 +24,14 @@ define( [
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       function createSetup( widgetConfiguration, logResourceUrl ) {
-         beforeEach( function() {
+         beforeEach( () => {
             numberOfMessageBatches = 0;
             originalTimeout = jasmine.DEFAULT_TIMEOUT_INTERVAL;
          } );
 
-         beforeEach( axMocks.createSetupForWidget( descriptor, { } ) );
+         beforeEach( axMocks.createSetupForWidget( descriptor ) );
 
-         beforeEach( function() {
+         beforeEach( () => {
             jasmine.clock().install();
             spyOn( ax.configuration, 'get' ).and.callFake( function( path ) {
                expect( path ).toEqual( 'widgets.laxar-log-activity.resourceUrl' );
@@ -43,7 +42,7 @@ define( [
 
          beforeEach( axMocks.widget.load );
 
-         beforeEach( function() {
+         beforeEach( () => {
             widgetContext = axMocks.widget.axContext;
             widgetEventBus = axMocks.widget.axEventBus;
             testEventBus = axMocks.eventBus;
@@ -74,18 +73,18 @@ define( [
 
          var workingPostSpy;
 
-         beforeEach( function() {
+         beforeEach( () => {
             // Make sure that the log threshold matches the expectations
             ax.log.setLogThreshold( 'INFO' );
-            $.ajax = workingPostSpy = jasmine.createSpy( 'workingPostSpy' ).and.callFake( function( request ) {
-               var method = request.type.toLowerCase();
-               if( method === 'post' ) {
-                  ++numberOfMessageBatches;
-                  lastRequestBody = JSON.parse( request.data );
-               }
-               var deferred = $.Deferred().resolve(request);
-               return deferred.promise();
-            } );
+            // $.ajax = workingPostSpy = jasmine.createSpy( 'workingPostSpy' ).and.callFake( function( request ) {
+            //    var method = request.type.toLowerCase();
+            //    if( method === 'post' ) {
+            //       ++numberOfMessageBatches;
+            //       lastRequestBody = JSON.parse( request.data );
+            //    }
+            //    var deferred = $.Deferred().resolve(request);
+            //    return deferred.promise();
+            // } );
          } );
 
          /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -93,14 +92,14 @@ define( [
          describe( 'when disabled', function() {
             createSetup( { logging: { enabled: false } }, 'http://test-repo:4711' );
 
-            beforeEach( function() {
+            beforeEach( () => {
                ax.log.warn( 'laxar-log-activity spec: this warning MUST not be posted' );
                jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 );
             } );
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'does not perform any HTTP communication (R1.01)', function() {
+            it( 'does not perform any HTTP communication (R1.01)', () => {
                expect( $.ajax ).not.toHaveBeenCalled();
             } );
          } );
@@ -111,7 +110,7 @@ define( [
 
             createSetup( {}, 'http://test-repo:4711' );
 
-            beforeEach( function() {
+            beforeEach( () => {
                ax.log.info( 'laxar-log-activity spec: this info MUST be buffered' );
                ax.log.warn( 'laxar-log-activity spec: this warning MUST be buffered' );
                ax.log.error( 'laxar-log-activity spec: this error MUST be buffered' );
@@ -119,7 +118,7 @@ define( [
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'defers sending them (R1.02)', function() {
+            it( 'defers sending them (R1.02)', () => {
                expect( $.ajax ).not.toHaveBeenCalled();
             } );
 
@@ -131,7 +130,7 @@ define( [
 
             createSetup( {}, 'http://test-repo:4711' );
 
-            it( 'tries to read the log resource URL from configuration (R1.03)', function() {
+            it( 'tries to read the log resource URL from configuration (R1.03)', () => {
                expect( ax.configuration.get ).toHaveBeenCalled();
             } );
 
@@ -143,13 +142,13 @@ define( [
 
             var errorSpy_;
 
-            beforeEach( function() {
+            beforeEach( () => {
                errorSpy_ = spyOn( ax.log, 'error' );
             } );
 
             createSetup( {}, null );
 
-            it( 'logs an error (R1.04)', function() {
+            it( 'logs an error (R1.04)', () => {
                expect( errorSpy_ ).toHaveBeenCalledWith( 'laxar-log-activity: resourceUrl not configured' );
             } );
 
@@ -161,13 +160,13 @@ define( [
             var messagesToSend_;
             createSetup( {}, 'http://test-repo:4711' );
 
-            beforeEach( function() {
+            beforeEach( () => {
                jasmine.DEFAULT_TIMEOUT_INTERVAL = ( widgetContext.features.logging.threshold.seconds + 1 ) * 1000;
             } );
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'submits collected messages to the service as items (R1.05)', function() {
+            it( 'submits collected messages to the service as items (R1.05)', () => {
                messagesToSend_ = [
                   'laxar-log-activity spec: this info MUST be sent',
                   'laxar-log-activity spec: this warning MUST be sent.',
@@ -186,7 +185,7 @@ define( [
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'substitutes placeholders in log messages (R1.15)', function() {
+            it( 'substitutes placeholders in log messages (R1.15)', () => {
                expect( $.ajax ).not.toHaveBeenCalled();
                ax.log.info( 'laxar-log-activity spec: This is a [0] and another [1].', 'placeholder', 1 );
                jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 );
@@ -196,7 +195,7 @@ define( [
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'stringifies objects when replacing placeholders in log messages (R1.15)', function() {
+            it( 'stringifies objects when replacing placeholders in log messages (R1.15)', () => {
                ax.log.info( 'laxar-log-activity spec: This is a [0].', { 'json': 'stringified object' } );
                ax.log.info( 'laxar-log-activity spec: This is a [0].', [ { 'json': 'stringified' }, 'array' ] );
                jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 );
@@ -209,7 +208,7 @@ define( [
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'treats the escaped backslash-escaped characters as normal text (R1.15)', function() {
+            it( 'treats the escaped backslash-escaped characters as normal text (R1.15)', () => {
                ax.log.info( 'laxar-log-activity spec: This \\[0] is not a placeholder', 4711 );
                jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 );
                var item = lastRequestBody.messages[ 0 ];
@@ -220,7 +219,7 @@ define( [
 
             describe( 'when a message with log tags was logged', function() {
 
-               beforeEach( function() {
+               beforeEach( () => {
                   var context = ax.log.context || ax.log;
                   context.addTag( 'TAG1', 'My tag' );
                   context.addTag( 'TAG2', 'My other tag' );
@@ -230,7 +229,7 @@ define( [
 
                ///////////////////////////////////////////////////////////////////////////////////////////////
 
-               it( 'appends the log tags to the message (R1.16)', function() {
+               it( 'appends the log tags to the message (R1.16)', () => {
                   var item = lastRequestBody.messages[ 0 ];
                   var tags = item.tags;
                   expect( tags ).toContain( 'INST:' + ( ax.log.context || ax.log ).gatherTags()[ 'INST' ] );
@@ -242,7 +241,7 @@ define( [
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'assigns the application instance identifier as tag INST to the items (R1.17)', function() {
+            it( 'assigns the application instance identifier as tag INST to the items (R1.17)', () => {
                ax.log.info( 'laxar-log-activity spec: this info MUST be sent' );
                jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 );
                var item = lastRequestBody.messages[ 0 ];
@@ -251,7 +250,7 @@ define( [
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'submits the log level with each item (R1.18)', function() {
+            it( 'submits the log level with each item (R1.18)', () => {
                messagesToSend_ = [
                   'laxar-log-activity spec: this info MUST be sent',
                   'laxar-log-activity spec: this warning MUST be sent.',
@@ -269,7 +268,7 @@ define( [
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'submits the creation time with each item (R1.18)', function() {
+            it( 'submits the creation time with each item (R1.18)', () => {
                ax.log.info( 'laxar-log-activity spec: this info MUST be sent' );
                jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 );
                expect( lastRequestBody.messages[ 0 ].time ).toEqual( jasmine.any( String ) );
@@ -287,13 +286,13 @@ define( [
             createSetup( { logging: { threshold: { seconds: userSetThresholdSeconds } } },
                          'http://test-repo:4711' );
 
-            beforeEach( function() {
+            beforeEach( () => {
                jasmine.DEFAULT_TIMEOUT_INTERVAL = ( userSetThresholdSeconds + 1 ) * 1000 ;
             } );
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'submits collected messages to the service (R1.06)', function() {
+            it( 'submits collected messages to the service (R1.06)', () => {
                messagesToSend_ = [ 'laxar-log-activity spec: this info MUST be sent' ];
                ax.log.info( messagesToSend_[ 0 ] );
                jasmine.clock().tick( userSetThresholdMs - 1 );
@@ -313,7 +312,7 @@ define( [
             createSetup( { logging: { threshold: { messages: limit }, requestPolicy: 'PER_MESSAGE' } },
                          'http://test-repo:4711' );
 
-            beforeEach( function() {
+            beforeEach( () => {
                limit = widgetContext.features.logging.threshold.messages;
                for( var i = 0; i < limit; ++i ) {
                   ax.log.info( 'laxar-log-activity spec: message number ' + i );
@@ -321,7 +320,7 @@ define( [
                jasmine.clock().tick( 0 );
             } );
 
-            it( 'submits collected messages to the service per message (R1.07)', function() {
+            it( 'submits collected messages to the service per message (R1.07)', () => {
                expect( numberOfMessageBatches ).toEqual( 3 );
                expect( lastRequestBody.text ).toEqual( 'laxar-log-activity spec: message number 2' );
             } );
@@ -337,7 +336,7 @@ define( [
 
             createSetup( {}, 'http://test-repo:4711' );
 
-            beforeEach( function() {
+            beforeEach( () => {
                messagesToSend_ = [ 'laxar-log-activity spec: this info MUST be sent' ];
                ax.log.info( messagesToSend_[ 0 ] );
 
@@ -355,7 +354,7 @@ define( [
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'immediately submits collected messages to the log service (R1.08)', function() {
+            it( 'immediately submits collected messages to the log service (R1.08)', () => {
                expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend_ );
             } );
 
@@ -368,7 +367,7 @@ define( [
             var limit_;
             createSetup( {}, 'http://test-repo:4711' );
 
-            beforeEach( function() {
+            beforeEach( () => {
                limit_ = widgetContext.features.logging.threshold.messages;
                for( var i = 0; i < limit_ - 1; ++i ) {
                   ax.log.info( 'laxar-log-activity spec: message number ' + i );
@@ -377,7 +376,7 @@ define( [
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'buffers as long as that has not been reached (R1.09, R1.11)', function() {
+            it( 'buffers as long as that has not been reached (R1.09, R1.11)', () => {
                expect( numberOfMessageBatches ).toEqual( 0 );
             } );
 
@@ -385,14 +384,14 @@ define( [
 
             describe( 'when that is reached', function() {
 
-               beforeEach( function() {
+               beforeEach( () => {
                   ax.log.info( 'laxar-log-activity spec: message number ' + (limit_ - 1) );
                   ax.log.info( 'laxar-log-activity spec: this message MUST NOT be sent in the first batch' );
                } );
 
                ///////////////////////////////////////////////////////////////////////////////////////////////
 
-               it( 'submits collected messages to the service (R1.09, R1.11)', function() {
+               it( 'submits collected messages to the service (R1.09, R1.11)', () => {
                   expect( numberOfMessageBatches ).toEqual( 1 );
                   expect( lastRequestBody.messages.length ).toEqual( limit_ );
                } );
@@ -409,7 +408,7 @@ define( [
 
             createSetup( { logging: { threshold: { messages: limit } } }, 'http://test-repo:4711' );
 
-            beforeEach( function() {
+            beforeEach( () => {
                limit = widgetContext.features.logging.threshold.messages;
                for( var i = 0; i < limit - 1; ++i ) {
                   ax.log.info( 'laxar-log-activity spec: message number ' + i );
@@ -418,7 +417,7 @@ define( [
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'buffers as long as that has not been reached (R1.10, R1.11)', function() {
+            it( 'buffers as long as that has not been reached (R1.10, R1.11)', () => {
                expect( numberOfMessageBatches ).toEqual( 0 );
             } );
 
@@ -426,14 +425,14 @@ define( [
 
             describe( 'when that is reached', function() {
 
-               beforeEach( function() {
+               beforeEach( () => {
                   ax.log.info( 'laxar-log-activity spec: message number ' + (limit - 1) );
                   ax.log.info( 'laxar-log-activity spec: this message MUST NOT be sent in the first batch' );
                } );
 
                ///////////////////////////////////////////////////////////////////////////////////////////////
 
-               it( 'submits collected messages to the service (R1.10, R1.11)', function() {
+               it( 'submits collected messages to the service (R1.10, R1.11)', () => {
                   expect( numberOfMessageBatches ).toEqual( 1 );
                   expect( lastRequestBody.messages.length ).toEqual( limit );
                } );
@@ -448,7 +447,7 @@ define( [
 
             createSetup( {}, 'http://test-repo:4711' );
 
-            beforeEach( function() {
+            beforeEach( () => {
                spyOn( ax.log, 'error' ).and.callThrough();
 
                var errorData = {
@@ -464,7 +463,7 @@ define( [
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'generates a corresponding log message (R1.13)', function() {
+            it( 'generates a corresponding log message (R1.13)', () => {
                expect( ax.log.error ).toHaveBeenCalledWith(
                   '([0]) [1]', 'HTTP_GET', 'laxar-log-activity spec: simulated error'
                );
@@ -484,7 +483,7 @@ define( [
 
             createSetup( { logging: { threshold: { messages: batchSize } } }, 'http://test-repo:4711' );
 
-            beforeEach( function() {
+            beforeEach( () => {
                for( var i = 0; i < repetitions; ++i ) {
                   ax.log.info( repeatedMessage );
                }
@@ -494,7 +493,7 @@ define( [
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'collapses them into one message on receipt (R1.14)', function() {
+            it( 'collapses them into one message on receipt (R1.14)', () => {
                expect( numberOfMessageBatches ).toEqual( 1 );
                expect( lastRequestBody.messages.length ).toEqual( 2 );
 
@@ -522,7 +521,7 @@ define( [
          var retrySeconds = 100;
          var retries = 4;
 
-         beforeEach( function() {
+         beforeEach( () => {
             $.ajax = failingPostSpy = jasmine.createSpy( 'failingPostSpy' ).and.callFake( function() {
                var deferred = $.Deferred().reject( 'failed' );
                return deferred.promise();
@@ -549,7 +548,7 @@ define( [
                'http://test-repo:4711'
             );
 
-            beforeEach( function() {
+            beforeEach( () => {
                ax.log.info( messageToLose + ' 0' );
                jasmine.clock().tick( tresholdSeconds * 1000 );
             } );
@@ -562,7 +561,7 @@ define( [
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'retries to submit the failed messages after a configured time seconds (R1.20)', function() {
+            it( 'retries to submit the failed messages after a configured time seconds (R1.20)', () => {
                expect( failingPostSpy.calls.count() ).toEqual( 1 );
                jasmine.clock().tick( retrySeconds * 1000 );
                expect( failingPostSpy.calls.count() ).toEqual( 2 );
@@ -572,7 +571,7 @@ define( [
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'retries to submit the failed messages only a configured number of retries (R1.20)', function() {
+            it( 'retries to submit the failed messages only a configured number of retries (R1.20)', () => {
                expect( failingPostSpy.calls.count() ).toEqual( 1 );
                jasmine.clock().tick( retrySeconds * 1000 );
                expect( failingPostSpy.calls.count() ).toEqual( 2 );
@@ -586,7 +585,7 @@ define( [
 
             describe( 'and the service is available again and new messages are logged', function() {
 
-               beforeEach( function() {
+               beforeEach( () => {
                   $.ajax = workingPostSpy = jasmine.createSpy( 'workingPostSpy' ).and.callFake( function( request ) {
                      var method = request.type.toLowerCase();
                      if( method === 'post' ) {
@@ -600,9 +599,9 @@ define( [
                   ax.log.info( messageToSentDirect + ' 1' );
                } );
 
-               //////////////////////////////////////////////////////////////////////////////////////////////////
+               ///////////////////////////////////////////////////////////////////////////////////////////////
 
-               it( 'retries to submit the failed messages without the new collected ones (R1.20)', function() {
+               it( 'retries to submit the failed messages without the new collected ones (R1.20)', () => {
                   expect( failingPostSpy.calls.count() ).toEqual( 1 );
                   jasmine.clock().tick( retrySeconds * 1000 );
                   jasmine.clock().tick( tresholdSeconds * 1000 );
@@ -618,7 +617,7 @@ define( [
 
             createSetup( {}, 'http://test-repo:4711' );
 
-            beforeEach( function() {
+            beforeEach( () => {
                ax.log.info( messageToLose + ' 0' );
                ax.log.info( messageToLose + ' 1' );
                ax.log.info( messageToLose + ' 2' );
@@ -641,7 +640,7 @@ define( [
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'discards failed messages (R1.12)', function() {
+            it( 'discards failed messages (R1.12)', () => {
                expect( failingPostSpy.calls.count() ).toEqual( 1 );
                expect( workingPostSpy.calls.count() ).toEqual( 1 );
                expect( lastRequestBody.messages.map( text ) ).toEqual( [
@@ -673,7 +672,7 @@ define( [
                'http://test-repo:4711'
             );
 
-            beforeEach( function() {
+            beforeEach( () => {
                ax.log.info( messageToLose + ' 0' );
                jasmine.clock().tick( tresholdSeconds * 1000 );
             } );
@@ -686,7 +685,7 @@ define( [
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'retries to submit the failed messages after a configured time interval (R1.20)', function() {
+            it( 'retries to submit the failed messages after a configured time interval (R1.20)', () => {
                expect( failingPostSpy.calls.count() ).toEqual( 1 );
                jasmine.clock().tick( retrySeconds * 1000 );
                expect( failingPostSpy.calls.count() ).toEqual( 2 );
@@ -694,7 +693,7 @@ define( [
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'retries to submit the failed messages only a configured number of retries (R1.20)', function() {
+            it( 'retries to submit the failed messages only a configured number of retries (R1.20)', () => {
                expect( failingPostSpy.calls.count() ).toEqual( 1 );
                jasmine.clock().tick( retrySeconds * 1000 * retries );
                expect( failingPostSpy.calls.count() ).toEqual( retries + 1 );
@@ -706,7 +705,7 @@ define( [
 
             describe( 'and the service is available again and new messages are logged', function() {
 
-               beforeEach( function() {
+               beforeEach( () => {
                   $.ajax = workingPostSpy = jasmine.createSpy( 'workingPostSpy' ).and.callFake(
                      function( request ) {
                         var method = request.type.toLowerCase();
@@ -725,7 +724,7 @@ define( [
 
                ///////////////////////////////////////////////////////////////////////////////////////////////
 
-               it( 'retries to submit the failed messages without the new collected ones (R1.20)', function() {
+               it( 'retries to submit the failed messages without the new collected ones (R1.20)', () => {
                   expect( failingPostSpy.calls.count() ).toEqual( 1 );
                   jasmine.clock().tick( retrySeconds * 1000 );
                   jasmine.clock().tick( tresholdSeconds * 1000 );
@@ -744,7 +743,7 @@ define( [
          var request_;
          var workingPostSpy;
 
-         beforeEach( function() {
+         beforeEach( () => {
             // Make sure that the log threshold matches the expectations
             ax.log.setLogThreshold( 'INFO' );
             $.ajax = workingPostSpy = jasmine.createSpy( 'workingPostSpy' ).and.callFake( function( request ) {
@@ -762,14 +761,14 @@ define( [
 
             createSetup( {}, 'http://test-repo:4711' );
 
-            beforeEach( function() {
+            beforeEach( () => {
                ax.log.info( 'laxar-log-activity spec: this info MUST be buffered' );
                jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 );
             } );
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'sends a headers with an empty object (R1.21)', function() {
+            it( 'sends a headers with an empty object (R1.21)', () => {
                // the default of headers in $.ajax is an empty object
                expect( request_.headers ).toEqual( {} );
             } );
@@ -789,14 +788,14 @@ define( [
                'http://test-repo:4711'
             );
 
-            beforeEach( function() {
+            beforeEach( () => {
                ax.log.info( 'laxar-log-activity spec: this info MUST be buffered' );
                jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 );
             } );
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'uses the default header (R1.21)', function() {
+            it( 'uses the default header (R1.21)', () => {
                expect( request_.headers[ 'x-laxar-log-tags' ] ).toBeDefined();
             } );
 
@@ -816,14 +815,14 @@ define( [
                'http://test-repo:4711'
             );
 
-            beforeEach( function() {
+            beforeEach( () => {
                ax.log.info( 'laxar-log-activity spec: this info MUST be buffered' );
                jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 );
             } );
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'uses the configured header (R1.21)', function() {
+            it( 'uses the configured header (R1.21)', () => {
                expect( request_.headers[ 'x-individual-name' ] ).toBeDefined();
             } );
 

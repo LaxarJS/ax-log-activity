@@ -6,9 +6,9 @@
 ( function( global ) {
    'use strict';
    global.laxarSpec = {
-      title: 'ax-log-activity Specification',
+      title: 'laxar-log-activity Specification',
       tests: [
-         'ax-log-activity.spec'
+         'laxar-log-activity.spec'
       ],
       testRunner: 'laxar-mocks',
       jasmineMajorVersion: 2

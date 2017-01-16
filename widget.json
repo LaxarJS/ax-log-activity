@@ -1,5 +1,5 @@
 {
-   "name": "ax-log-activity",
+   "name": "laxar-log-activity",
    "description": "Collects and sends log messages to a configured service.",
 
    "integration": {
