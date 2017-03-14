@@ -14,13 +14,14 @@ const formatMessage = createMessageFormatter();
 
 // export for use from tests
 export function clearBuffer() {
+   console.log( 'CLR' );
    buffer = [];
 }
 
-export const injections = [ 'axContext', 'axConfiguration', 'axEventBus', 'axFeatures', 'axGlobalLog', 'axLog' ];
-export function create( context, configuration, eventBus, features, globalLog, log ) {
+export const injections =
+   [ 'axContext', 'axConfiguration', 'axEventBus', 'axFeatures', 'axGlobalLog', 'axLog' ];
 
-   console.log( 'DELETE ME 1', globalLog, globalLog.gatherTags() );
+export function create( context, configuration, eventBus, features, globalLog, log ) {
 
    if( !features.logging.enabled ) { return; }
 
@@ -69,7 +70,6 @@ export function create( context, configuration, eventBus, features, globalLog, l
    eventBus.subscribe( 'endLifecycleRequest', () => {
       window.removeEventListener( 'beforeunload', handleBeforeUnload );
    } );
-   console.log( 'DELETE ME 2' );
    // Allow to perform cleanup from tests without confusing karma or jasmine
    context.commands = { handleBeforeUnload, clearBuffer };
 
@@ -140,7 +140,7 @@ export function create( context, configuration, eventBus, features, globalLog, l
       const source = document.location.origin;
       const chunks = requestPolicy === 'BATCH' ?
          [ { messages: buffer, source } ] :
-         buffer.map( _ => ({ message: _, source }) );
+         buffer.map( _ => ({ ..._, source }) );
       chunks.forEach( send );
       clearBuffer();
 

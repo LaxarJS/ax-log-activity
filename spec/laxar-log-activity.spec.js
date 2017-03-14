@@ -7,17 +7,14 @@ import * as axMocks from 'laxar-mocks';
 
 describe( 'A laxar-log-activity', () => {
 
-   const logResourceUrl = 'http://test-repo:4711';
-
    let axConfiguration;
    let axContext;
    let axFeatures;
    let axGlobalLog;
    let axLog;
 
-   let mockLogThreshold;
    let mockLogItemId;
-   let logChannel;
+   let mockLogTags;
 
    let xhrInstanceMock;
    let fetchMock;
@@ -25,7 +22,7 @@ describe( 'A laxar-log-activity', () => {
    let lastRequestBody;
    let numberOfMessageBatches;
 
-   let INSTANCE_ID;
+   const INSTANCE_ID = '12345';
    let originalTimeout;
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -33,6 +30,7 @@ describe( 'A laxar-log-activity', () => {
    function initializeHttpMocks() {
       fetchMock = window.fetch = jasmine.createSpy( 'fetchMock' )
          .and.callFake( (url, { method, body } ) => {
+            console.log( 'DELETE ME fetchMock', body );
             expect( method ).toEqual( 'POST' );
             ++numberOfMessageBatches;
             lastRequestBody = JSON.parse( body );
@@ -61,30 +59,37 @@ describe( 'A laxar-log-activity', () => {
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   function initializeWidgetServiceMocks( services ) {
-      ({ axConfiguration, axContext, axFeatures, axGlobalLog, axLog } = services);
+   function initializeWidgetServiceMocks( options ) {
+      const { mockLogResourceUrl = 'http://test-repo:4711', mockLogThreshold = 'INFO' } = options;
+      return services => {
+         ({ axConfiguration, axContext, axFeatures, axGlobalLog, axLog } = services);
 
-      axConfiguration.get.and.callFake( path => {
-         expect( path ).toEqual( 'widgets.laxar-log-activity.resourceUrl' );
-         return logResourceUrl;
-      } );
-
-      axGlobalLog.gatherTags.and.callFake( () => ({ INST: INSTANCE_ID }) );
-      axGlobalLog.addLogChannel.and.callFake( channel => { logChannel = channel; } );
-      Object.keys( axLog.levels ).forEach( level => {
-         axLog[ level.toLowerCase() ].and.callFake( (text, ...replacements) => {
-            const id = ++mockLogItemId;
-            const tags = axGlobalLog.gatherTags();
-            const sourceInfo = { file: 'fake.js', line: 4711 };
-            const time = new Date();
-            logChannel( { id, replacements, sourceInfo, tags, text, time } );
+         axConfiguration.get.and.callFake( path => {
+            expect( path ).toEqual( 'widgets.laxar-log-activity.resourceUrl' );
+            return mockLogResourceUrl;
          } );
-      } );
+
+         mockLogTags = { INST: INSTANCE_ID };
+         axGlobalLog.gatherTags.and.callFake( () => JSON.parse( JSON.stringify( mockLogTags ) ) );
+         axGlobalLog.addLogChannel.and.callFake( channel => {
+            Object.keys( axLog.levels ).forEach( level => {
+               if( axLog.levels[ level ] < axLog.levels[ mockLogThreshold ] ) { return; }
+               axLog[ level.toLowerCase() ].and.callFake( (text, ...replacements) => {
+                  const id = ++mockLogItemId;
+                  const tags = axGlobalLog.gatherTags();
+                  const sourceInfo = { file: 'fake.js', line: 4711 };
+                  const time = new Date();
+                  channel( { id, level, replacements, sourceInfo, tags, text, time } );
+               } );
+            } );
+         } );
+      };
    }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   function createSetup( widgetConfiguration ) {
+   function createSetup( widgetConfiguration, options = {} ) {
+
       beforeEach( () => {
          numberOfMessageBatches = 0;
          originalTimeout = jasmine.DEFAULT_TIMEOUT_INTERVAL;
@@ -95,7 +100,7 @@ describe( 'A laxar-log-activity', () => {
 
       beforeEach( () => {
          jasmine.clock().install();
-         axMocks.widget.whenServicesAvailable( initializeWidgetServiceMocks );
+         axMocks.widget.whenServicesAvailable( initializeWidgetServiceMocks( options ) );
          axMocks.widget.configure( widgetConfiguration );
       } );
 
@@ -113,6 +118,7 @@ describe( 'A laxar-log-activity', () => {
    afterEach( done => {
       jasmine.clock().uninstall();
       jasmine.DEFAULT_TIMEOUT_INTERVAL = originalTimeout;
+      console.log( 'afterEach' );
       if( axContext.commands ) {
          axContext.commands.clearBuffer();
       }
@@ -122,12 +128,6 @@ describe( 'A laxar-log-activity', () => {
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    describe( 'with feature logging', () => {
-
-      beforeEach( () => {
-
-      } );
-
-      ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       describe( 'when disabled', () => {
          createSetup( { logging: { enabled: false } } );
@@ -151,7 +151,7 @@ describe( 'A laxar-log-activity', () => {
          createSetup( {} );
 
          beforeEach( () => {
-            axLog.info( 'laxar-log-activity spec: this info MUST be buffered' );
+            axLog.info( 'laxar-log-activity spec: this info MUST be bcolluffered' );
             axLog.warn( 'laxar-log-activity spec: this warning MUST be buffered' );
             axLog.error( 'laxar-log-activity spec: this error MUST be buffered' );
          } );
@@ -180,7 +180,7 @@ describe( 'A laxar-log-activity', () => {
 
       describe( 'when log resource configuration is missing', () => {
 
-         createSetup( {}, null );
+         createSetup( {}, { mockLogResourceUrl: null } );
 
          it( 'logs an error (R1.04)', () => {
             expect( axLog.error ).toHaveBeenCalledWith( 'resourceUrl not configured' );
@@ -191,7 +191,7 @@ describe( 'A laxar-log-activity', () => {
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       describe( 'using the default time threshold, when that is reached', () => {
-         let messagesToSend_;
+         let messagesToSend;
          createSetup( {} );
 
          beforeEach( () => {
@@ -201,20 +201,20 @@ describe( 'A laxar-log-activity', () => {
          /////////////////////////////////////////////////////////////////////////////////////////////////////
 
          it( 'submits collected messages to the service as items (R1.05)', () => {
-            messagesToSend_ = [
+            messagesToSend = [
                'laxar-log-activity spec: this info MUST be sent',
                'laxar-log-activity spec: this warning MUST be sent.',
                'laxar-log-activity spec: this error MUST be sent'
             ];
             axLog.debug( 'laxar-log-activity spec: this debug message MUST NOT be sent' );
-            axLog.info( messagesToSend_[ 0 ] );
-            axLog.warn( messagesToSend_[ 1 ] );
-            axLog.error( messagesToSend_[ 2 ] );
+            axLog.info( messagesToSend[ 0 ] );
+            axLog.warn( messagesToSend[ 1 ] );
+            axLog.error( messagesToSend[ 2 ] );
             expect( fetchMock ).not.toHaveBeenCalled();
             jasmine.clock().tick( axFeatures.logging.threshold.seconds * 1000 );
             axLog.info( 'laxar-log-activity spec: this message MUST NOT be sent with the first batch' );
             expect( fetchMock ).toHaveBeenCalled();
-            expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend_ );
+            expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend );
          } );
 
          /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -257,9 +257,8 @@ describe( 'A laxar-log-activity', () => {
          describe( 'when a message with log tags was logged', () => {
 
             beforeEach( () => {
-               const context = axLog.context || axLog;
-               context.addTag( 'TAG1', 'My tag' );
-               context.addTag( 'TAG2', 'My other tag' );
+               mockLogTags[ 'TAG1' ] = 'My tag';
+               mockLogTags[ 'TAG2' ] = 'My other tag';
                axLog.info( 'Log Activity spec: Text' );
                jasmine.clock().tick( axFeatures.logging.threshold.seconds * 1000 );
             } );
@@ -269,7 +268,7 @@ describe( 'A laxar-log-activity', () => {
             it( 'appends the log tags to the message (R1.16)', () => {
                const item = lastRequestBody.messages[ 0 ];
                const tags = item.tags;
-               expect( tags ).toContain( `INST: ${INSTANCE_ID}` );
+               expect( tags ).toContain( `INST:${INSTANCE_ID}` );
                expect( tags ).toContain( 'TAG1:My tag' );
                expect( tags ).toContain( 'TAG2:My other tag' );
             } );
@@ -288,14 +287,14 @@ describe( 'A laxar-log-activity', () => {
          /////////////////////////////////////////////////////////////////////////////////////////////////////
 
          it( 'submits the log level with each item (R1.18)', () => {
-            messagesToSend_ = [
+            messagesToSend = [
                'laxar-log-activity spec: this info MUST be sent',
                'laxar-log-activity spec: this warning MUST be sent.',
                'laxar-log-activity spec: this error MUST be sent'
             ];
-            axLog.info( messagesToSend_[ 0 ] );
-            axLog.warn( messagesToSend_[ 1 ] );
-            axLog.error( messagesToSend_[ 2 ] );
+            axLog.info( messagesToSend[ 0 ] );
+            axLog.warn( messagesToSend[ 1 ] );
+            axLog.error( messagesToSend[ 2 ] );
             jasmine.clock().tick( axFeatures.logging.threshold.seconds * 1000 );
             expect( lastRequestBody.messages[ 0 ].level ).toEqual( 'INFO' );
             expect( lastRequestBody.messages[ 1 ].level ).toEqual( 'WARN' );
@@ -316,7 +315,7 @@ describe( 'A laxar-log-activity', () => {
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       describe( 'using the user-defined time threshold, when that is reached', () => {
-         let messagesToSend_;
+         let messagesToSend;
          const userSetThresholdSeconds = 777;
          const userSetThresholdMs = userSetThresholdSeconds * 1000;
 
@@ -329,14 +328,14 @@ describe( 'A laxar-log-activity', () => {
          /////////////////////////////////////////////////////////////////////////////////////////////////////
 
          it( 'submits collected messages to the service (R1.06)', () => {
-            messagesToSend_ = [ 'laxar-log-activity spec: this info MUST be sent' ];
-            axLog.info( messagesToSend_[ 0 ] );
+            messagesToSend = [ 'laxar-log-activity spec: this info MUST be sent' ];
+            axLog.info( messagesToSend[ 0 ] );
             jasmine.clock().tick( userSetThresholdMs - 1 );
             expect( fetchMock ).not.toHaveBeenCalled();
             jasmine.clock().tick( 1 );
             axLog.info( 'laxar-log-activity spec: this message MUST NOT be sent' );
             jasmine.clock().tick( userSetThresholdMs - 1 );
-            expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend_ );
+            expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend );
          } );
       } );
 
@@ -372,17 +371,17 @@ describe( 'A laxar-log-activity', () => {
 
       describe( 'when the event window.onload is triggered', () => {
 
-         let messagesToSend_;
-         let originalBeforeunload_;
+         let messagesToSend;
+         let originalBeforeunload;
 
          createSetup( {} );
 
          beforeEach( () => {
-            messagesToSend_ = [ 'laxar-log-activity spec: this info MUST be sent' ];
-            axLog.info( messagesToSend_[ 0 ] );
+            messagesToSend = [ 'laxar-log-activity spec: this info MUST be sent' ];
+            axLog.info( messagesToSend[ 0 ] );
 
             // PhantomJS compatibility: temporarily clear beforeunload to allow for event simulation
-            originalBeforeunload_ = window.onbeforeunload;
+            originalBeforeunload = window.onbeforeunload;
             window.onbeforeunload = function() {};
             axContext.commands.handleBeforeUnload();
          } );
@@ -390,13 +389,13 @@ describe( 'A laxar-log-activity', () => {
          /////////////////////////////////////////////////////////////////////////////////////////////////////
 
          afterEach( () => {
-            window.onbeforeunload = originalBeforeunload_;
+            window.onbeforeunload = originalBeforeunload;
          } );
 
          /////////////////////////////////////////////////////////////////////////////////////////////////////
 
          it( 'immediately submits collected messages to the log service (R1.08)', () => {
-            expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend_ );
+            expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend );
          } );
 
       } );
@@ -488,8 +487,6 @@ describe( 'A laxar-log-activity', () => {
          createSetup( {} );
 
          beforeEach( () => {
-            spyOn( axLog, 'error' ).and.callThrough();
-
             const errorData = {
                code: 'HTTP_GET',
                message: 'laxar-log-activity spec: simulated error',
@@ -676,22 +673,19 @@ describe( 'A laxar-log-activity', () => {
 
       describe( 'and with retry enabled and the request policy "PER_MESSAGE"', () => {
 
-         createSetup(
-            {
-               logging: {
-                  threshold: {
-                     seconds: tresholdSeconds
-                  },
-                  requestPolicy: 'PER_MESSAGE',
-                  retry: {
-                     enabled: true,
-                     seconds: retrySeconds,
-                     retries
-                  }
+         createSetup( {
+            logging: {
+               threshold: {
+                  seconds: tresholdSeconds
+               },
+               requestPolicy: 'PER_MESSAGE',
+               retry: {
+                  enabled: true,
+                  seconds: retrySeconds,
+                  retries
                }
-            },
-            'http://test-repo:4711'
-         );
+            }
+         } );
 
          beforeEach( () => {
             axLog.info( `${messageToLose} 0` );

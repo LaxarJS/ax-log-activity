@@ -74,7 +74,7 @@ R1.07 The log messages MUST be sent by HTTP POST to the configured log resource 
 The content type of the request MUST be `application/json`.
 
 It MUST be configurable if the messages are sent in batch or individually.
-The body of the request MUST be either a JSON-serialized message or MUST contain a JSON-serialized object with an array with messages and a property `source`.
+The body of the request MUST be either a JSON-serialized message or MUST contain a JSON-serialized object with an array of `messages` and a property `source`.
 The property MUST be a string with the URL of the source of the logging messages.
 
 Each message MUST have the following properties:
