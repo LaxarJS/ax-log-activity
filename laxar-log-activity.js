@@ -17,12 +17,12 @@ export function clearBuffer() {
    buffer = [];
 }
 
-const injections = [ 'axContext', 'axConfiguration', 'axEventBus', 'axFeatures', 'axGlobalLog', 'axLog' ];
-function createLogActivity( context, configuration, eventBus, features, globalLog, log ) {
+export const injections = [ 'axContext', 'axConfiguration', 'axEventBus', 'axFeatures', 'axGlobalLog', 'axLog' ];
+export function create( context, configuration, eventBus, features, globalLog, log ) {
 
-   if( !features.logging.enabled ) {
-      return;
-   }
+   console.log( 'DELETE ME 1', globalLog, globalLog.gatherTags() );
+
+   if( !features.logging.enabled ) { return; }
 
    const logResourceUrl = configuration.get( 'widgets.laxar-log-activity.resourceUrl', null );
    if( !logResourceUrl ) {
@@ -40,6 +40,8 @@ function createLogActivity( context, configuration, eventBus, features, globalLo
    const { threshold, retry } = features.logging;
    const ms = s => 1000 * s;
 
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
    // Collect log messages and submit them periodically:
    let timeout = window.setTimeout( submit, ms( threshold.seconds ) );
    let retryTimeout;
@@ -50,10 +52,12 @@ function createLogActivity( context, configuration, eventBus, features, globalLo
       window.clearTimeout( ms( retry.seconds ) );
    } );
 
-   // Log error events:
+   // Log error events in order to include them
    eventBus.subscribe( 'didEncounterError', ({ code, message }) => {
       log.error( '([0]) [1]', code, message );
    } );
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    // Submit messages before browser unload:
    function handleBeforeUnload() {
@@ -61,8 +65,13 @@ function createLogActivity( context, configuration, eventBus, features, globalLo
       window.clearTimeout( timeout );
       window.clearTimeout( retryTimeout );
    }
-   // :TODO: remove existing subscription, but only for this widget ID
    window.addEventListener( 'beforeunload', handleBeforeUnload );
+   eventBus.subscribe( 'endLifecycleRequest', () => {
+      window.removeEventListener( 'beforeunload', handleBeforeUnload );
+   } );
+   console.log( 'DELETE ME 2' );
+   // Allow to perform cleanup from tests without confusing karma or jasmine
+   context.commands = { handleBeforeUnload, clearBuffer };
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -117,6 +126,7 @@ function createLogActivity( context, configuration, eventBus, features, globalLo
 
    function submit( synchronously ) {
       window.clearTimeout( timeout );
+      console.log( 'DELETE ME setTimeout', buffer, ms( threshold.seconds ) );
       timeout = window.setTimeout( submit, ms( threshold.seconds ) );
       if( !buffer.length ) {
          return;
@@ -135,6 +145,7 @@ function createLogActivity( context, configuration, eventBus, features, globalLo
       clearBuffer();
 
       function send( request ) {
+         console.log( 'DELETE ME send', request );
          const payload = JSON.stringify( request );
          postTo( logResourceUrl, payload, synchronously )
             .catch( () => {
@@ -177,7 +188,7 @@ function createLogActivity( context, configuration, eventBus, features, globalLo
          } );
       }
 
-      if( navigator.sendBeacon && features.instanceId.header ) {
+      if( navigator.sendBeacon && !features.instanceId.header ) {
          const blob = new Blob( [ body ], { type: headers[ 'Content-Type' ] } );
          navigator.sendBeacon( url, blob );
          return Promise.resolve();
@@ -227,8 +238,3 @@ function defaultFormatter( value, subSpecifier ) {
    }
    return string.DEFAULT_FORMATTERS[ 'default' ]( value, subSpecifier );
 }
-
-export default {
-   injections,
-   create: createLogActivity
-};

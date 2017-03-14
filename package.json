@@ -1,14 +1,14 @@
 {
-  "name": "laxar-command-bar-widget",
-  "version": "3.0.0-alpha.0",
-  "description": "AngularJS v1 widget that allows a user to trigger actions (such as navigation) using graphical buttons.",
+  "name": "laxar-log-activity",
+  "version": "4.0.0-pre",
+  "description": "LaxarJS v2 plain activity that collects log messages and submits them to a log service periodically and before page navigation",
   "homepage": "http://laxarjs.org",
-  "main": "laxar-command-bar-widget.js",
-  "browser": "dist/laxar-command-bar-widget.js",
+  "main": "laxar-log-activity.js",
+  "browser": "dist/laxar-log-activity.js",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/LaxarJS/ax-command-bar-widget.git"
+    "url": "https://github.com/LaxarJS/ax-log-activity.git"
   },
   "scripts": {
     "prepublish": "npm run dist",
@@ -18,14 +18,8 @@
     "karma": "karma start karma.config.js",
     "eslint": "eslint *.js spec"
   },
-  "dependencies": {
-    "laxar-button-list-control": "2.0.0-alpha.0",
-    "laxar-patterns": "^2.0.0-alpha.2"
-  },
+  "dependencies": {},
   "devDependencies": {
-    "angular": "^1.5.11",
-    "angular-mocks": "^1.5.11",
-    "angular-sanitize": "^1.5.11",
     "babel-core": "^6.23.1",
     "babel-loader": "^6.4.0",
     "babel-plugin-transform-object-rest-spread": "^6.23.0",
@@ -36,23 +30,18 @@
     "html-loader": "^0.4.5",
     "karma": "^1.5.0",
     "laxar": "^2.0.0",
-    "laxar-angular-adapter": "2.0.0",
     "laxar-infrastructure": "^0.1.0-alpha.4",
     "laxar-loader": "^2.0.0-alpha.1",
     "laxar-mocks": "^2.0.0-beta.2",
-    "laxar-uikit": "^2.0.0",
+    "laxar-uikit": "^2.0.0-alpha.5",
     "webpack": "^2.2.1",
     "webpack-dev-server": "^2.4.1"
   },
   "peerDependencies": {
-    "angular": "^1.5.11",
-    "angular-sanitize": "^1.5.11",
-    "laxar": "^2.0.0",
-    "laxar-angular-adapter": "2.0.0",
-    "laxar-uikit": "^2.0.0"
+    "laxar": "^2.0.0"
   },
   "bugs": {
-    "url": "https://github.com/LaxarJS/ax-command-bar-widget/issues",
+    "url": "https://github.com/LaxarJS/ax-log-activity/issues",
     "email": "info@laxarjs.org"
   }
 }
