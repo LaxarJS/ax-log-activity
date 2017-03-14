@@ -14,8 +14,8 @@ const formatMessage = createMessageFormatter();
 
 // export for use from tests
 export function clearBuffer() {
-   console.log( 'CLR' );
    buffer = [];
+   resendBuffer = [];
 }
 
 export const injections =
@@ -126,7 +126,6 @@ export function create( context, configuration, eventBus, features, globalLog, l
 
    function submit( synchronously ) {
       window.clearTimeout( timeout );
-      console.log( 'DELETE ME setTimeout', buffer, ms( threshold.seconds ) );
       timeout = window.setTimeout( submit, ms( threshold.seconds ) );
       if( !buffer.length ) {
          return;
@@ -142,10 +141,9 @@ export function create( context, configuration, eventBus, features, globalLog, l
          [ { messages: buffer, source } ] :
          buffer.map( _ => ({ ..._, source }) );
       chunks.forEach( send );
-      clearBuffer();
+      buffer = [];
 
       function send( request ) {
-         console.log( 'DELETE ME send', request );
          const payload = JSON.stringify( request );
          postTo( logResourceUrl, payload, synchronously )
             .catch( () => {
@@ -169,8 +167,8 @@ export function create( context, configuration, eventBus, features, globalLog, l
       resendBuffer.forEach( item => {
          postTo( logResourceUrl, item.payload, synchronously )
             .then(
-               () => { item.retries = 0; },
-               () => { --item.retries; }
+               () => { item.retriesLeft = 0; },
+               () => { --item.retriesLeft; }
             );
       } );
    }
@@ -186,12 +184,6 @@ export function create( context, configuration, eventBus, features, globalLog, l
             headers,
             body
          } );
-      }
-
-      if( navigator.sendBeacon && !features.instanceId.header ) {
-         const blob = new Blob( [ body ], { type: headers[ 'Content-Type' ] } );
-         navigator.sendBeacon( url, blob );
-         return Promise.resolve();
       }
 
       // use old-school XHR because as synchronous fallback (page-unload)
@@ -213,7 +205,7 @@ function createMessageFormatter() {
    return ( text, replacements ) => {
       const anonymizeReplacements = [];
       const mappers = {
-         anonymize: value => {
+         anonymize( value ) {
             anonymizeReplacements.push( value );
             return `[${anonymizeReplacements.length - 1}:anonymize]`;
          }
@@ -229,11 +221,11 @@ function createMessageFormatter() {
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 function defaultFormatter( value, subSpecifier ) {
+   if( value instanceof Error ) {
+      const { message, stack = '' } = value;
+      return JSON.stringify( { message, stack } );
+   }
    if( typeof value === 'object' && value != null ) {
-      if( value instanceof Error ) {
-         const { message, stack = '' } = value;
-         return JSON.stringify( { message, stack } );
-      }
       return JSON.stringify( value );
    }
    return string.DEFAULT_FORMATTERS[ 'default' ]( value, subSpecifier );
