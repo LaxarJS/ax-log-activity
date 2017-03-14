@@ -1,6 +1,6 @@
 # laxar-log-activity [![Build Status](https://travis-ci.org/LaxarJS/ax-log-activity.svg?branch=master)](https://travis-ci.org/LaxarJS/ax-log-activity)
 
-The laxar-log-activity collects log messages and submits them to a log service periodically and before page navigation.
+> LaxarJS v2 plain activity that collects log messages and submits them to a log service periodically and before page navigation
 
 
 ## Content
@@ -15,14 +15,42 @@ The laxar-log-activity collects log messages and submits them to a log service p
 
 ### Installation
 
-For installation instruction take a look at the [LaxarJS documentation](https://github.com/LaxarJS/laxar/blob/master/docs/manuals/installing_widgets.md).
+Within a LaxarJS v2 project, simply run:
+
+```console
+npm install laxar-log-activity
+```
 
 
-### Configuration example
+### REST Service Configuration
+
+The REST service which accepts the logging data from the activity must be configured in your application configuration (e.g. `init.js`).
+You have to specify the key `widgets.laxar-log-activity.resourceUrl`:
+
+```js
+import { bootstrap } from 'laxar';
+
+bootstrap( /*...*/, {
+   /*...,*/   
+   configuration: {
+      /*...,*/   
+      widgets: {
+         'laxar-log-activity': {
+            resourceUrl: '/some-service/log-resource'
+         }
+      }
+   }
+} );
+```
+
+
+### Page Configuration example
+
+Use this configuration on a page for a laxar-log-activity instance which collects log messages and submits them to a configured service every 60 seconds or when having collected more than 150 messages.
 
 ```json
 {
-   "widget": "amd:laxar-log-activity",
+   "widget": "laxar-log-activity",
    "features": {
       "logging": {
          "requestPolicy": "PER_MESSAGE",
@@ -35,22 +63,7 @@ For installation instruction take a look at the [LaxarJS documentation](https://
 }
 ```
 
-Use this configuration on a page to get an laxar-log-activity instance which collects log messages and submits them to a configured service every 60 seconds or when having collected more than 150 messages.
-
 For full configuration options refer to the [widget.json](widget.json).
-
-
-### Configuration of the Service
-
-The service which accepts the logging data from the laxar-log-activity must be configured in the `application.js`.
-
-```
-widgets: {
-   'laxar-log-activity': {
-      resourceUrl: '/some-service/log-resource'
-   }
-}
-```
 
 
 ## Features
@@ -74,7 +87,7 @@ R1.07 The log messages MUST be sent by HTTP POST to the configured log resource 
 The content type of the request MUST be `application/json`.
 
 It MUST be configurable if the messages are sent in batch or individually.
-The body of the request MUST be either a JSON-serialized message or MUST contain a JSON-serialized object with an array with messages and a property `source`.
+The body of the request MUST be either a JSON-serialized message or MUST contain a JSON-serialized object with an array of `messages` and a property `source`.
 The property MUST be a string with the URL of the source of the logging messages.
 
 Each message MUST have the following properties:
