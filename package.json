@@ -1,6 +1,6 @@
 {
   "name": "laxar-log-activity",
-  "version": "4.0.0-pre",
+  "version": "4.0.0-alpha.0",
   "description": "LaxarJS v2 plain activity that collects log messages and submits them to a log service periodically and before page navigation",
   "homepage": "http://laxarjs.org",
   "main": "laxar-log-activity.js",

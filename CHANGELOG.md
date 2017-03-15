@@ -2,6 +2,9 @@
 
 ## Last Changes
 
+
+## v4.0.0-alpha.0
+
 - [#6](https://github.com/LaxarJS/ax-log-activity/issues/6): Upgrade to LaxarJS v2
    + **BREAKING CHANGE:** see ticket for details
 - [#5](https://github.com/LaxarJS/ax-log-activity/issues/5): Added feature instanceId to allow configured header with temporary identifier
