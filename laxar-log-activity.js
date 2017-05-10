@@ -9,6 +9,10 @@ import { string } from 'laxar';
 let lastMessageId = -1;
 let buffer = [];
 let resendBuffer = [];
+let retryTimeout;
+let retryMilliseconds;
+let nextSubmit = null;
+let logResourceUrl;
 
 const formatMessage = createMessageFormatter();
 
@@ -16,16 +20,18 @@ const formatMessage = createMessageFormatter();
 export function clearBuffer() {
    buffer = [];
    resendBuffer = [];
+   nextSubmit = null;
+   retryTimeout = null;
+   retryMilliseconds = null;
 }
 
 export const injections =
    [ 'axContext', 'axConfiguration', 'axEventBus', 'axFeatures', 'axGlobalLog', 'axLog' ];
 
 export function create( context, configuration, eventBus, features, globalLog, log ) {
-
    if( !features.logging.enabled ) { return; }
 
-   const logResourceUrl = configuration.get( 'widgets.laxar-log-activity.resourceUrl', null );
+   logResourceUrl = configuration.get( 'widgets.laxar-log-activity.resourceUrl', null );
    if( !logResourceUrl ) {
       log.error( 'resourceUrl not configured' );
       return;
@@ -41,22 +47,40 @@ export function create( context, configuration, eventBus, features, globalLog, l
    const { threshold, retry } = features.logging;
    const ms = s => 1000 * s;
 
-   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+   window.clearTimeout( retryTimeout );
+   if( features.logging.retry.enabled ) {
+      if( resendBuffer.length > 0 ) {
+         scheduleNextResend();
+      }
+   }
 
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
    // Collect log messages and submit them periodically:
-   let timeout = window.setTimeout( submit, ms( threshold.seconds ) );
-   let retryTimeout;
+
    globalLog.addLogChannel( handleLogItem );
+   let timeout;
+
+   const dateNow = Date.now();
+   if( nextSubmit && dateNow >= nextSubmit) {
+      submit();
+   }
+   else {
+      scheduleNextSubmit( dateNow );
+   }
+
+
    eventBus.subscribe( 'endLifecycleRequest', () => {
       globalLog.removeLogChannel( handleLogItem );
       window.clearTimeout( timeout );
-      window.clearTimeout( ms( retry.seconds ) );
+      window.clearTimeout( retryTimeout );
+      window.removeEventListener( 'beforeunload', handleBeforeUnload );
    } );
 
    // Log error events in order to include them
    eventBus.subscribe( 'didEncounterError', ({ code, message }) => {
       log.error( '([0]) [1]', code, message );
    } );
+
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -67,10 +91,7 @@ export function create( context, configuration, eventBus, features, globalLog, l
       window.clearTimeout( retryTimeout );
    }
    window.addEventListener( 'beforeunload', handleBeforeUnload );
-   eventBus.subscribe( 'endLifecycleRequest', () => {
-      window.removeEventListener( 'beforeunload', handleBeforeUnload );
-   } );
-   // Allow to perform cleanup from tests without confusing karma or jasmine
+   // Allow to perfor494498976590m cleanup from tests without confusing karma or jasmine
    context.commands = { handleBeforeUnload, clearBuffer };
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -125,8 +146,9 @@ export function create( context, configuration, eventBus, features, globalLog, l
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    function submit( synchronously ) {
-      window.clearTimeout( timeout );
-      timeout = window.setTimeout( submit, ms( threshold.seconds ) );
+      nextSubmit = null;
+      scheduleNextSubmit( Date.now() );
+
       if( !buffer.length ) {
          return;
       }
@@ -140,6 +162,7 @@ export function create( context, configuration, eventBus, features, globalLog, l
       const chunks = requestPolicy === 'BATCH' ?
          [ { messages: buffer, source } ] :
          buffer.map( _ => ({ ..._, source }) );
+
       chunks.forEach( send );
       buffer = [];
 
@@ -149,8 +172,7 @@ export function create( context, configuration, eventBus, features, globalLog, l
             .catch( () => {
                if( retry.enabled && !synchronously ) {
                   resendBuffer.push( { payload, retriesLeft: retry.retries } );
-                  window.clearTimeout( retryTimeout );
-                  retryTimeout = window.setTimeout( resendMessages, ms( retry.seconds ) );
+                  scheduleNextResend();
                }
             } );
       }
@@ -162,13 +184,14 @@ export function create( context, configuration, eventBus, features, globalLog, l
       window.clearTimeout( retryTimeout );
       resendBuffer = resendBuffer.filter( item => item.retriesLeft > 0 );
       if( resendBuffer.length > 0 ) {
-         retryTimeout = window.setTimeout( resendMessages, ms( retry.seconds ) );
+         retryTimeout = window.setTimeout( resendMessages, retryMilliseconds );
       }
       resendBuffer.forEach( item => {
+         --item.retriesLeft;
          postTo( logResourceUrl, item.payload, synchronously )
             .then(
                () => { item.retriesLeft = 0; },
-               () => { --item.retriesLeft; }
+               () => {}
             );
       } );
    }
@@ -194,6 +217,27 @@ export function create( context, configuration, eventBus, features, globalLog, l
       } );
       request.send( body );
       return Promise.resolve();
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   function scheduleNextSubmit( dateNow ) {
+      window.clearTimeout( timeout );
+      if( nextSubmit ) {
+         timeout = window.setTimeout( submit, nextSubmit - dateNow );
+      }
+      else {
+         timeout = window.setTimeout( submit, ms( threshold.seconds ) );
+         nextSubmit = dateNow + ms( threshold.seconds );
+      }
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   function scheduleNextResend() {
+      window.clearTimeout( retryTimeout );
+      retryMilliseconds = ms( retry.seconds );
+      retryTimeout = window.setTimeout( resendMessages, retryMilliseconds );
    }
 }
 
