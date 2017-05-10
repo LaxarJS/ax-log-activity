@@ -42,21 +42,35 @@ export function create( context, configuration, eventBus, features, globalLog, l
    const ms = s => 1000 * s;
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
    // Collect log messages and submit them periodically:
-   let timeout = window.setTimeout( submit, ms( threshold.seconds ) );
-   let retryTimeout;
+
    globalLog.addLogChannel( handleLogItem );
+   let retryTimeout;
+   let timeout;
+
+   const dateNow = Date.now();
+   const nextSubmit = window.nextSubmit || dateNow + ms( threshold.seconds );
+
+   if( dateNow >= nextSubmit ) {
+      submit();
+   }
+   else {
+      window.nextSubmit = Date.now() + ms( threshold.seconds );
+      timeout = window.setTimeout( submit, nextSubmit - dateNow );
+   }
+
    eventBus.subscribe( 'endLifecycleRequest', () => {
       globalLog.removeLogChannel( handleLogItem );
       window.clearTimeout( timeout );
       window.clearTimeout( ms( retry.seconds ) );
+      window.removeEventListener( 'beforeunload', handleBeforeUnload );
    } );
 
    // Log error events in order to include them
    eventBus.subscribe( 'didEncounterError', ({ code, message }) => {
       log.error( '([0]) [1]', code, message );
    } );
+
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -67,9 +81,6 @@ export function create( context, configuration, eventBus, features, globalLog, l
       window.clearTimeout( retryTimeout );
    }
    window.addEventListener( 'beforeunload', handleBeforeUnload );
-   eventBus.subscribe( 'endLifecycleRequest', () => {
-      window.removeEventListener( 'beforeunload', handleBeforeUnload );
-   } );
    // Allow to perform cleanup from tests without confusing karma or jasmine
    context.commands = { handleBeforeUnload, clearBuffer };
 
@@ -127,6 +138,8 @@ export function create( context, configuration, eventBus, features, globalLog, l
    function submit( synchronously ) {
       window.clearTimeout( timeout );
       timeout = window.setTimeout( submit, ms( threshold.seconds ) );
+      window.nextSubmit = Date.now() + ms( threshold.seconds );
+
       if( !buffer.length ) {
          return;
       }
@@ -140,6 +153,7 @@ export function create( context, configuration, eventBus, features, globalLog, l
       const chunks = requestPolicy === 'BATCH' ?
          [ { messages: buffer, source } ] :
          buffer.map( _ => ({ ..._, source }) );
+
       chunks.forEach( send );
       buffer = [];
 

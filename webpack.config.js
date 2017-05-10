@@ -23,8 +23,7 @@ const webpack = require( 'laxar-infrastructure' ).webpack( {
    ]
 } );
 
-
 module.exports = [
    webpack.library(),
-   webpack.browserSpec( [ `./spec/${pkg.name}.spec.js` ] )
+   webpack.browserSpec( [ `spec/${pkg.name}.spec.js`, `spec/${pkg.name}-navigation-tests.spec.js` ] )
 ];

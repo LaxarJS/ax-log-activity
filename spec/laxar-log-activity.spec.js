@@ -107,6 +107,7 @@ describe( 'A laxar-log-activity', () => {
    beforeEach( axMocks.setupForWidget() );
 
    afterEach( done => {
+      window.nextSubmit = undefined;
       jasmine.clock().uninstall();
       jasmine.DEFAULT_TIMEOUT_INTERVAL = originalTimeout;
       if( axContext.commands ) {
@@ -185,7 +186,7 @@ describe( 'A laxar-log-activity', () => {
          createSetup( {} );
 
          beforeEach( () => {
-            jasmine.DEFAULT_TIMEOUT_INTERVAL = ms( axFeatures.logging.threshold.seconds + 1 );
+            //jasmine.DEFAULT_TIMEOUT_INTERVAL = ms( axFeatures.logging.threshold.seconds + 1 );
          } );
 
          /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -633,6 +634,9 @@ describe( 'A laxar-log-activity', () => {
                      expect( fetchMock.calls.count() ).toEqual( 3 );
                   } )
                   .then( done, done.fail );
+               expect( lastRequestBody.messages.map( text ) ).toEqual( [
+                  `${messageToLose} 0`
+               ] );
             } );
 
          } );
@@ -748,7 +752,6 @@ describe( 'A laxar-log-activity', () => {
          } );
       } );
    } );
-
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 

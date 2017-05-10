@@ -2,6 +2,8 @@
 
 ## Last Changes
 
+- [#7](https://github.com/LaxarJS/ax-log-activity/issues/7): Fixed timer after navigation
+
 
 ## v4.0.0-alpha.0
 
