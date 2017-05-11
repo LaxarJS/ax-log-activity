@@ -15,7 +15,7 @@ The laxar-log-activity collects log messages and submits them to a log service p
 
 ### Installation
 
-For installation instruction take a look at the [LaxarJS documentation](https://github.com/LaxarJS/laxar/blob/master/docs/manuals/installing_widgets.md).
+For installation instruction take a look at the [LaxarJS documentation](https://laxarjs.org/docs/laxar-latest/manuals/installing_widgets).
 
 
 ### Configuration example
