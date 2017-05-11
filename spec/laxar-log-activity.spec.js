@@ -4,6 +4,7 @@
  * http://laxarjs.org/license
  */
 import * as axMocks from 'laxar-mocks';
+import { text, ms, awaitRetries } from './helper-functions';
 
 describe( 'A laxar-log-activity', () => {
 
@@ -107,7 +108,6 @@ describe( 'A laxar-log-activity', () => {
    beforeEach( axMocks.setupForWidget() );
 
    afterEach( done => {
-      window.nextSubmit = undefined;
       jasmine.clock().uninstall();
       jasmine.DEFAULT_TIMEOUT_INTERVAL = originalTimeout;
       if( axContext.commands ) {
@@ -186,7 +186,7 @@ describe( 'A laxar-log-activity', () => {
          createSetup( {} );
 
          beforeEach( () => {
-            //jasmine.DEFAULT_TIMEOUT_INTERVAL = ms( axFeatures.logging.threshold.seconds + 1 );
+            jasmine.DEFAULT_TIMEOUT_INTERVAL = ms( axFeatures.logging.threshold.seconds + 1 );
          } );
 
          /////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -204,6 +204,24 @@ describe( 'A laxar-log-activity', () => {
             expect( fetchMock ).not.toHaveBeenCalled();
             jasmine.clock().tick( ms( axFeatures.logging.threshold.seconds ) );
             axLog.info( 'laxar-log-activity spec: this message MUST NOT be sent with the first batch' );
+            expect( fetchMock ).toHaveBeenCalled();
+            expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend );
+         } );
+
+         //////////////////////////////////////////////////////////////////////////////////////////////////
+
+         it( 'a message doesn\'t delays the submission (R1.05)', () => {
+            messagesToSend = [
+               'laxar-log-activity spec: this info MUST be sent',
+               'laxar-log-activity spec: this warning MUST be sent.',
+               'laxar-log-activity spec: this error MUST be sent'
+            ];
+            axLog.info( messagesToSend[ 0 ] );
+            axLog.warn( messagesToSend[ 1 ] );
+            jasmine.clock().tick( axFeatures.logging.threshold.seconds * 1000 / 2 );
+            axLog.error( messagesToSend[ 2 ] );
+            expect( fetchMock ).not.toHaveBeenCalled();
+            jasmine.clock().tick( axFeatures.logging.threshold.seconds * 1000 / 2 );
             expect( fetchMock ).toHaveBeenCalled();
             expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend );
          } );
@@ -606,7 +624,7 @@ describe( 'A laxar-log-activity', () => {
                   expect( fetchMock.calls.count() ).toEqual( 2 );
                   return fetchMock.flushAsync();
                } )
-               .then( () => awaitRetries( ms( retrySeconds ), retries ) )
+               .then( () => awaitRetries( ms( retrySeconds ), retries, fetchMock ) )
                .then( () => {
                   expect( fetchMock.calls.count() ).toEqual( retries + 1 );
                   return fetchMock.flushAsync();
@@ -720,11 +738,11 @@ describe( 'A laxar-log-activity', () => {
          it( 'retries to submit the failed messages only a configured number of retries (R1.20)', done => {
             expect( fetchMock.calls.count() ).toEqual( 1 );
             fetchMock.flushAsync()
-               .then( () => awaitRetries( ms( retrySeconds ), retries ) )
+               .then( () => awaitRetries( ms( retrySeconds ), retries, fetchMock ) )
                .then( () => {
                   expect( fetchMock.calls.count() ).toEqual( retries + 1 );
                } )
-               .then( () => awaitRetries( ms( retrySeconds ), 1 ) )
+               .then( () => awaitRetries( ms( retrySeconds ), 1, fetchMock ) )
                .then( () => {
                   expect( fetchMock.calls.count() ).toEqual( retries + 1 );
                } )
@@ -822,31 +840,5 @@ describe( 'A laxar-log-activity', () => {
       } );
 
    } );
-
-   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-   function text( messageItem ) {
-      return messageItem.text;
-   }
-
-   function ms( seconds ) {
-      return seconds * 1000;
-   }
-
-   function range( numItems ) {
-      const r = new Array( numItems );
-      for( let i = 0; i <= numItems; ++i ) { r[ i ] = i; }
-      return r;
-   }
-
-   function awaitRetries( retryMs, numRetries ) {
-      return range( numRetries ).reduce(
-         prev => prev.then( () => {
-            jasmine.clock().tick( retryMs );
-            return fetchMock.flushAsync();
-         } ),
-         Promise.resolve()
-      );
-   }
 
 } );

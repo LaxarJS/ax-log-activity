@@ -9,6 +9,7 @@ import { string } from 'laxar';
 let lastMessageId = -1;
 let buffer = [];
 let resendBuffer = [];
+let nextSubmit = null;
 
 const formatMessage = createMessageFormatter();
 
@@ -16,13 +17,13 @@ const formatMessage = createMessageFormatter();
 export function clearBuffer() {
    buffer = [];
    resendBuffer = [];
+   nextSubmit = null;
 }
 
 export const injections =
    [ 'axContext', 'axConfiguration', 'axEventBus', 'axFeatures', 'axGlobalLog', 'axLog' ];
 
 export function create( context, configuration, eventBus, features, globalLog, log ) {
-
    if( !features.logging.enabled ) { return; }
 
    const logResourceUrl = configuration.get( 'widgets.laxar-log-activity.resourceUrl', null );
@@ -49,14 +50,11 @@ export function create( context, configuration, eventBus, features, globalLog, l
    let timeout;
 
    const dateNow = Date.now();
-   const nextSubmit = window.nextSubmit || dateNow + ms( threshold.seconds );
-
-   if( dateNow >= nextSubmit ) {
+   if( nextSubmit && dateNow >= nextSubmit) {
       submit();
    }
    else {
-      window.nextSubmit = Date.now() + ms( threshold.seconds );
-      timeout = window.setTimeout( submit, nextSubmit - dateNow );
+      scheduleNextSubmit( dateNow );
    }
 
    eventBus.subscribe( 'endLifecycleRequest', () => {
@@ -81,7 +79,7 @@ export function create( context, configuration, eventBus, features, globalLog, l
       window.clearTimeout( retryTimeout );
    }
    window.addEventListener( 'beforeunload', handleBeforeUnload );
-   // Allow to perform cleanup from tests without confusing karma or jasmine
+   // Allow to perfor494498976590m cleanup from tests without confusing karma or jasmine
    context.commands = { handleBeforeUnload, clearBuffer };
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -136,9 +134,8 @@ export function create( context, configuration, eventBus, features, globalLog, l
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    function submit( synchronously ) {
-      window.clearTimeout( timeout );
-      timeout = window.setTimeout( submit, ms( threshold.seconds ) );
-      window.nextSubmit = Date.now() + ms( threshold.seconds );
+      nextSubmit = null;
+      scheduleNextSubmit( Date.now() );
 
       if( !buffer.length ) {
          return;
@@ -208,6 +205,19 @@ export function create( context, configuration, eventBus, features, globalLog, l
       } );
       request.send( body );
       return Promise.resolve();
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   function scheduleNextSubmit( dateNow ) {
+      window.clearTimeout( timeout );
+      if( nextSubmit ) {
+         timeout = window.setTimeout( submit, nextSubmit - dateNow );
+      }
+      else {
+         timeout = window.setTimeout( submit, ms( threshold.seconds ) );
+         nextSubmit = dateNow + ms( threshold.seconds );
+      }
    }
 }
 

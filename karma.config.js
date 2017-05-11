@@ -8,8 +8,11 @@ module.exports = function( config ) {
 };
 
 function karmaConfig() {
-   return laxarInfrastructure.karma( [ `spec/${pkg.name}.spec.js`, `spec/${pkg.name}-navigation-tests.spec.js` ], {
-      context: __dirname,
-      rules: require( './webpack.config' )[ 0 ].module.rules
-   } );
+   return laxarInfrastructure.karma( [
+      `spec/${pkg.name}.spec.js`,
+      `spec/${pkg.name}-navigation-tests.spec.js` ], {
+         context: __dirname,
+         rules: require( './webpack.config' )[ 0 ].module.rules
+      }
+   );
 }

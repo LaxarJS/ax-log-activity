@@ -1,10 +1,11 @@
 /**
- * Copyright 2016-2017 aixigo AG
+ * Copyright 2017 aixigo AG
  * Released under the MIT license.
  * http://laxarjs.org/license
  */
 import * as logActivity from '../laxar-log-activity';
 import { object } from 'laxar';
+import { text, ms, awaitRetries } from './helper-functions';
 
 import {
    createAxConfigurationMock,
@@ -42,7 +43,7 @@ describe( 'A laxar-log-activity', () => {
 
       jasmine.clock().install();
       originalTimeout = jasmine.DEFAULT_TIMEOUT_INTERVAL;
-      createInjections()
+      createInjections();
       injections = [ axContext, axConfiguration, axEventBus, axFeatures, axGlobalLog, axLog ];
       logActivity.create( ...injections );
 
@@ -100,7 +101,6 @@ describe( 'A laxar-log-activity', () => {
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
    afterEach( () => {
-      window.nextSubmit = undefined;
       jasmine.clock().uninstall();
       jasmine.DEFAULT_TIMEOUT_INTERVAL = originalTimeout;
       lastRequestBody = '';
@@ -109,7 +109,7 @@ describe( 'A laxar-log-activity', () => {
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   it( 'doesn\'t submit the messages before one of the defined condition is fulfilled', () => {
+   it( 'doesn\'t submit the messages before one of the defined condition is fulfilled (R1.05, R1.09)', () => {
       axLog.info( messagesToSend[ 0 ] );
       axLog.warn( messagesToSend[ 1 ] );
       axLog.error( messagesToSend[ 2 ] );
@@ -129,7 +129,7 @@ describe( 'A laxar-log-activity', () => {
 
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-      it( 'submits collected messages to the service', () => {
+      it( 'submits collected messages to the service (R1.05)', () => {
          expect( fetchMock ).toHaveBeenCalled();
          expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend );
       } );
@@ -150,7 +150,7 @@ describe( 'A laxar-log-activity', () => {
 
          /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-         it( 'submits collected messages to the service', () => {
+         it( 'submits collected messages to the service (R1.05)', () => {
             expect( fetchMock ).toHaveBeenCalled();
             expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend );
          } );
@@ -175,7 +175,7 @@ describe( 'A laxar-log-activity', () => {
 
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-      it( 'a new activity on the second page submits collected messages to the service', () => {
+      it( 'a new activity on the second page submits collected messages to the service (#7, R1.05)', () => {
          expect( fetchMock ).toHaveBeenCalled();
          expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend );
       } );
@@ -200,13 +200,20 @@ describe( 'A laxar-log-activity', () => {
 
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-      it( 'doesn\'t submit the messages before the full time of threshold is reached', () => {
-         expect( fetchMock ).not.toHaveBeenCalled();
+      it( 'doesn\'t submit the messages before the full time of threshold is reached (#7, R1.05)', done => {
+         const halfMillisecondsThreshold = ms( axFeatures.logging.threshold.seconds / 2 );
+         fetchMock.flushAsync()
+            .then( () => {
+               jasmine.clock().tick( halfMillisecondsThreshold );
+               jasmine.clock().mockDate( new Date( baseTime.getTime() + halfMillisecondsThreshold ) );
+               expect( fetchMock ).not.toHaveBeenCalled();
+            } )
+            .then( done, done.fail );
       } );
 
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-      describe( 'and after the full time of threshold is reached', () => {
+      describe( 'and after the full time of threshold is reached (#7, R1.05)', () => {
 
          it( 'a new activity on the second page submits collected messages to the service', done => {
             const halfMillisecondsThreshold = ms( axFeatures.logging.threshold.seconds / 2 );
@@ -214,7 +221,6 @@ describe( 'A laxar-log-activity', () => {
             fetchMock.flushAsync()
                .then( () => {
                   jasmine.clock().tick( halfMillisecondsThreshold );
-                  jasmine.clock().mockDate( new Date( baseTime.getTime() + halfMillisecondsThreshold ) );
                   expect( fetchMock ).not.toHaveBeenCalled();
                } )
                .then( () => {
@@ -225,7 +231,6 @@ describe( 'A laxar-log-activity', () => {
                } )
                .then( () => {
                   jasmine.clock().tick( halfMillisecondsThreshold );
-                  jasmine.clock().mockDate( baseTime.getTime() + halfMillisecondsThreshold );
                   expect( fetchMock ).toHaveBeenCalled();
                   expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend );
                } )
@@ -233,6 +238,45 @@ describe( 'A laxar-log-activity', () => {
          } );
       } );
 
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      describe( 'and after another navigation and the full time of threshold is reached', () => {
+
+         it( 'a new activity on the third page submits collected messages to the service (#7, R1.05)',
+            done => {
+               const halfMillisecondsThreshold = ms( axFeatures.logging.threshold.seconds / 2 );
+               const quarterMillisecondsThreshold = ms( axFeatures.logging.threshold.seconds / 4 );
+
+               fetchMock.flushAsync()
+                  .then( () => {
+                     jasmine.clock().tick( quarterMillisecondsThreshold );
+                     expect( fetchMock ).not.toHaveBeenCalled();
+                  } )
+                  .then( () => {
+                     axEventBus.publish( 'endLifecycleRequest', { lifecycleId: 'default' } );
+                     axEventBus.flush();
+                     logActivity.create( ...injections );
+                     expect( fetchMock ).not.toHaveBeenCalled();
+                  } )
+                  .then( () => {
+                     jasmine.clock().tick( quarterMillisecondsThreshold );
+                     expect( fetchMock ).not.toHaveBeenCalled();
+                  } )
+                  .then( () => {
+                     axEventBus.publish( 'endLifecycleRequest', { lifecycleId: 'default' } );
+                     axEventBus.flush();
+                     logActivity.create( ...injections );
+                     expect( fetchMock ).not.toHaveBeenCalled();
+                  } )
+                  .then( () => {
+                     jasmine.clock().tick( halfMillisecondsThreshold );
+                     expect( fetchMock ).toHaveBeenCalled();
+                     expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend );
+                  } )
+                  .then( done, done.fail );
+            }
+         );
+      } );
    } );
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -261,7 +305,7 @@ describe( 'A laxar-log-activity', () => {
 
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-      it( 'retries to submit the failed messages after a configured time seconds (R1.20)', done => {
+      it( 'retries to submit the failed messages after a configured time seconds (#7, R1.20)', done => {
          expect( fetchMock.calls.count() ).toEqual( 1 );
 
          fetchMock.flushAsync()
@@ -279,7 +323,7 @@ describe( 'A laxar-log-activity', () => {
 
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-      it( 'retries to submit the failed messages only a configured number of retries (R1.20)', done => {
+      it( 'retries to submit the failed messages only a configured number of retries (#7, R1.20)', done => {
          expect( fetchMock.calls.count() ).toEqual( 1 );
 
          fetchMock.flushAsync()
@@ -288,7 +332,7 @@ describe( 'A laxar-log-activity', () => {
                expect( fetchMock.calls.count() ).toEqual( 2 );
                return fetchMock.flushAsync();
             } )
-            .then( () => awaitRetries( ms( retrySeconds ), retries ) )
+            .then( () => awaitRetries( ms( retrySeconds ), retries, fetchMock ) )
             .then( () => {
                expect( fetchMock.calls.count() ).toEqual( retries + 1 );
                return fetchMock.flushAsync();
@@ -308,7 +352,7 @@ describe( 'A laxar-log-activity', () => {
 
          /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-         it( 'retries to submit the failed messages without the new collected ones (R1.20)', done => {
+         it( 'retries to submit the failed messages without the new collected ones (#7, R1.20)', done => {
             expect( fetchMock.calls.count() ).toEqual( 1 );
             fetchMock.flushAsync()
                .then( () => {
@@ -322,38 +366,6 @@ describe( 'A laxar-log-activity', () => {
          } );
       } );
    } );
-
-   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-   function text( messageItem ) {
-      return messageItem.text;
-   }
-
-   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-   function ms( seconds ) {
-      return seconds * 1000;
-   }
-
-   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-   function range( numItems ) {
-      const r = new Array( numItems );
-      for( let i = 0; i <= numItems; ++i ) { r[ i ] = i; }
-      return r;
-   }
-
-   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-   function awaitRetries( retryMs, numRetries ) {
-      return range( numRetries ).reduce(
-         prev => prev.then( () => {
-            jasmine.clock().tick( retryMs );
-            return fetchMock.flushAsync();
-         } ),
-         Promise.resolve()
-      );
-   }
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
