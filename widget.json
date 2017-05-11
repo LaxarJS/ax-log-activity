@@ -53,7 +53,7 @@
 
                "retry": {
                   "type": "object",
-                  "description": "Specifiy if the activity should retry to submit messages.",
+                  "description": "Specify if the activity should retry to submit messages.",
                   "default": {
                      "enabled": false
                   },

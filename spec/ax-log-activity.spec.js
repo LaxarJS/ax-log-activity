@@ -61,7 +61,7 @@ define( [
       afterEach( axMocks.tearDown );
 
       afterEach( function() {
-         testEventBus.publish( 'endLifecycleRequest' );
+         testEventBus.publish( 'endLifecycleRequest.default', { lifecycleId: 'default' } );
          testEventBus.flush();
          jasmine.clock().uninstall();
          jasmine.DEFAULT_TIMEOUT_INTERVAL = originalTimeout;
@@ -273,6 +273,24 @@ define( [
                ax.log.info( 'laxar-log-activity spec: this info MUST be sent' );
                jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 );
                expect( lastRequestBody.messages[ 0 ].time ).toEqual( jasmine.any( String ) );
+            } );
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
+            it( 'a message doesn\'t delays the submission', function() {
+               messagesToSend_ = [
+                  'laxar-log-activity spec: this info MUST be sent',
+                  'laxar-log-activity spec: this warning MUST be sent.',
+                  'laxar-log-activity spec: this error MUST be sent'
+               ];
+               ax.log.info( messagesToSend_[ 0 ] );
+               ax.log.warn( messagesToSend_[ 1 ] );
+               jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 / 2 );
+               ax.log.error( messagesToSend_[ 2 ] );
+               expect( $.ajax ).not.toHaveBeenCalled();
+               jasmine.clock().tick( widgetContext.features.logging.threshold.seconds * 1000 / 2 );
+               expect( $.ajax ).toHaveBeenCalled();
+               expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend_ );
             } );
 
          } );
@@ -736,7 +754,6 @@ define( [
          } );
       } );
 
-
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       describe( 'with feature instanceId', function() {
@@ -778,7 +795,7 @@ define( [
 
          /////////////////////////////////////////////////////////////////////////////////////////////////////
 
-         describe( 'when created enabled', function(){
+         describe( 'when enabled', function(){
 
             createSetup(
                {
@@ -830,5 +847,6 @@ define( [
          } );
 
       } );
+
    } );
 } );
