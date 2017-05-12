@@ -536,7 +536,7 @@ define( [
          var messageToSentDirect = 'laxar-log-activity spec: This message MUST be sent';
          var failingPostSpy;
          var workingPostSpy;
-         var tresholdSeconds = 100;
+         var thresholdSeconds = 100;
          var retrySeconds = 100;
          var retries = 4;
 
@@ -555,7 +555,7 @@ define( [
                {
                   logging: {
                      threshold: {
-                        seconds: tresholdSeconds
+                        seconds: thresholdSeconds
                      },
                      retry: {
                         enabled: true,
@@ -569,7 +569,7 @@ define( [
 
             beforeEach( function() {
                ax.log.info( messageToLose + ' 0' );
-               jasmine.clock().tick( tresholdSeconds * 1000 );
+               jasmine.clock().tick( thresholdSeconds * 1000 );
             } );
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -623,7 +623,7 @@ define( [
                it( 'retries to submit the failed messages without the new collected ones (R1.20)', function() {
                   expect( failingPostSpy.calls.count() ).toEqual( 1 );
                   jasmine.clock().tick( retrySeconds * 1000 );
-                  jasmine.clock().tick( tresholdSeconds * 1000 );
+                  jasmine.clock().tick( thresholdSeconds * 1000 );
                   expect( workingPostSpy.calls.count() ).toEqual( 2 );
                } );
 
@@ -678,7 +678,7 @@ define( [
                {
                   logging: {
                      threshold: {
-                        seconds: tresholdSeconds
+                        seconds: thresholdSeconds
                      },
                      requestPolicy: 'PER_MESSAGE',
                      retry: {
@@ -693,7 +693,7 @@ define( [
 
             beforeEach( function() {
                ax.log.info( messageToLose + ' 0' );
-               jasmine.clock().tick( tresholdSeconds * 1000 );
+               jasmine.clock().tick( thresholdSeconds * 1000 );
             } );
 
             //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -746,7 +746,7 @@ define( [
                it( 'retries to submit the failed messages without the new collected ones (R1.20)', function() {
                   expect( failingPostSpy.calls.count() ).toEqual( 1 );
                   jasmine.clock().tick( retrySeconds * 1000 );
-                  jasmine.clock().tick( tresholdSeconds * 1000 );
+                  jasmine.clock().tick( thresholdSeconds * 1000 );
                   expect( workingPostSpy.calls.count() ).toEqual( 3 );
                } );
 

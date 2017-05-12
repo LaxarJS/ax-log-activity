@@ -17,6 +17,10 @@ define( [
 
    var buffer_ = [];
    var resendBuffer = [];
+   var retryTimeout;
+   var retryMilliseconds;
+   var nextSubmit = null;
+   var logResourceUrl_;
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -24,12 +28,17 @@ define( [
 
    var logController = function( context ) {
 
-      context.clearBuffer = function() { buffer_.length = 0; }; //function for the spec tests
+      //function for the spec tests
+      context.clearBuffer = function() {
+         buffer_.length = 0;
+         resendBuffer = [];
+         nextSubmit = null;
+      };
 
       if( !context.features.logging.enabled ) {
          return;
       }
-      var logResourceUrl_ = ax.configuration.get( 'widgets.laxar-log-activity.resourceUrl', null );
+      logResourceUrl_ = ax.configuration.get( 'widgets.laxar-log-activity.resourceUrl', null );
       if( !logResourceUrl_ ) {
          ax.log.error( 'laxar-log-activity: resourceUrl not configured' );
          return;
@@ -44,19 +53,31 @@ define( [
       var waitMilliseconds = context.features.logging.threshold.seconds * 1000;
       var waitMessages = context.features.logging.threshold.messages;
 
-      var resendTimeout;
       if( context.features.logging.retry.enabled ) {
-         var resendMilliseconds = context.features.logging.retry.seconds * 1000;
          var resendRetries = context.features.logging.retry.retries;
+         if( resendBuffer.length > 0 ) {
+            scheduleNextResend();
+         }
       }
 
       // Collect log messages and submit them periodically:
       ax.log.addLogChannel( handleLogItem );
-      var timeout = window.setTimeout( submit, waitMilliseconds );
+
+      var timeout;
+
+      var dateNow = Date.now();
+      if( nextSubmit && dateNow >= nextSubmit ) {
+         submit();
+      }
+      else {
+         scheduleNextSubmit( dateNow );
+      }
+
+
       context.eventBus.subscribe( 'endLifecycleRequest', function() {
          ax.log.removeLogChannel( handleLogItem );
          window.clearTimeout( timeout );
-         window.clearTimeout( resendTimeout );
+         window.clearTimeout( retryTimeout );
       } );
 
       // Log error events:
@@ -69,7 +90,7 @@ define( [
       $( window ).on( 'beforeunload.laxar-log-activity', function() {
          submit( true );
          window.clearTimeout( timeout );
-         window.clearTimeout( resendTimeout );
+         window.clearTimeout( retryTimeout );
       } );
 
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -133,6 +154,9 @@ define( [
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       function submit( synchronously ) {
+         nextSubmit = null;
+         scheduleNextSubmit( Date.now() );
+
          if( context.features.logging.requestPolicy === 'BATCH' ) {
             submitBatch( synchronously );
          }
@@ -144,8 +168,6 @@ define( [
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       function submitBatch( synchronously ) {
-         window.clearTimeout( timeout );
-         timeout = window.setTimeout( submitBatch, waitMilliseconds );
          if( !buffer_.length ) {
             return;
          }
@@ -155,9 +177,11 @@ define( [
          postTo( logResourceUrl_, requestBody, synchronously ).fail(
             function() {
                if( context.features.logging.retry.enabled && !synchronously ) {
-                  resendBuffer.push( { requestBody: requestBody, retries: 0 } );
-                  window.clearTimeout( resendTimeout );
-                  resendTimeout = window.setTimeout( resendMessages, resendMilliseconds );
+                  resendBuffer.push( {
+                     requestBody: requestBody,
+                     retriesLeft: resendRetries
+                  } );
+                  scheduleNextResend();
                }
             }
          );
@@ -181,8 +205,6 @@ define( [
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       function submitPerMessage( synchronously ) {
-         window.clearTimeout( timeout );
-         timeout = window.setTimeout( submitPerMessage, waitMilliseconds );
          if( !buffer_.length ) {
             return;
          }
@@ -196,9 +218,11 @@ define( [
             postTo( logResourceUrl_, requestBody, synchronously ).fail(
                function() {
                   if( context.features.logging.retry.enabled && !synchronously ) {
-                     resendBuffer.push( { requestBody: requestBody, retries: 0 } );
-                     window.clearTimeout( resendTimeout );
-                     resendTimeout = window.setTimeout( resendMessages, resendMilliseconds );
+                     resendBuffer.push( {
+                        requestBody: requestBody,
+                        retriesLeft: resendRetries
+                     } );
+                     scheduleNextResend();
                   }
                }
             );
@@ -209,29 +233,18 @@ define( [
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
 
       function resendMessages( synchronously ) {
-         window.clearTimeout( resendTimeout );
-         resendTimeout = window.setTimeout( resendMessages, resendMilliseconds );
-         if( resendBuffer.length === 0 ) {
-            window.clearTimeout( resendTimeout );
-            return;
+         window.clearTimeout( retryTimeout );
+         resendBuffer = resendBuffer.filter( function( item ) { return item.retriesLeft > 0; } );
+         if( resendBuffer.length > 0 ) {
+            retryTimeout = window.setTimeout( resendMessages, retryMilliseconds );
          }
-         resendBuffer.forEach( function( requestObject ) {
-            if( requestObject.retries >= resendRetries ) {
-               return;
-            }
-
-            postTo( logResourceUrl_, requestObject.requestBody, synchronously ).done(
-               function() {
-                  requestObject.retries = resendRetries;
-               }
-            ).fail(
-               function() {
-                  ++requestObject.retries;
-               }
-            );
-         } );
-         resendBuffer = resendBuffer.filter( function( requestObject ) {
-            return requestObject.retries < resendRetries;
+         resendBuffer.forEach( function( item ) {
+            --item.retriesLeft;
+            postTo( logResourceUrl_, item.requestBody, synchronously )
+               .then(
+                  function() { item.retriesLeft = 0; },
+                  function() { }
+               );
          } );
       }
 
@@ -248,6 +261,27 @@ define( [
             contentType: 'application/json',
             headers: headers
          } );
+      }
+
+      ////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      function scheduleNextSubmit( dateNow ) {
+         window.clearTimeout( timeout );
+         if( nextSubmit ) {
+            timeout = window.setTimeout( submit, nextSubmit - dateNow );
+         }
+         else {
+            timeout = window.setTimeout( submit, waitMilliseconds );
+            nextSubmit = dateNow + waitMilliseconds;
+         }
+      }
+
+      ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+      function scheduleNextResend() {
+         window.clearTimeout( retryTimeout );
+         retryMilliseconds = context.features.logging.retry.seconds * 1000;
+         retryTimeout = window.setTimeout( resendMessages, retryMilliseconds );
       }
    };
 

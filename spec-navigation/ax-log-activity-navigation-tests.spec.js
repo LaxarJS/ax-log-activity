@@ -8,15 +8,16 @@ define( [
    '../ax-log-activity',
    'jquery',
    'laxar'
-], function( descriptor, controller, $, ax, undefined ) {
+], function( descriptor, controller, $, ax ) {
    'use strict';
 
    describe( 'A laxar-log-activity with navigation', function() {
 
-      var INSTANCE_ID;
       var lastRequestBody;
       var numberOfMessageBatches;
       var originalTimeout;
+      var failingPostSpy;
+      var workingPostSpy;
 
       var thresholdSeconds = 120;
       var retries = 10;
@@ -29,7 +30,6 @@ define( [
       var messagesToSend;
 
       var baseTime;
-      var fetchMock;
 
       var legacyQ = {
          defer: defer,
@@ -56,20 +56,20 @@ define( [
 
       describe( 'with feature logging', function() {
 
-         var workingPostSpy;
-
          beforeEach( function() {
             // Make sure that the log threshold matches the expectations
             ax.log.setLogThreshold( 'INFO' );
-            $.ajax = workingPostSpy = jasmine.createSpy( 'workingPostSpy' ).and.callFake( function( request ) {
-               var method = request.type.toLowerCase();
-               if( method === 'post' ) {
-                  ++numberOfMessageBatches;
-                  lastRequestBody = JSON.parse( request.data );
+            $.ajax = workingPostSpy = jasmine.createSpy( 'workingPostSpy' ).and.callFake(
+               function( request ) {
+                  var method = request.type.toLowerCase();
+                  if( method === 'post' ) {
+                     ++numberOfMessageBatches;
+                     lastRequestBody = JSON.parse( request.data );
+                  }
+                  var deferred = $.Deferred().resolve(request);
+                  return deferred.promise();
                }
-               var deferred = $.Deferred().resolve(request);
-               return deferred.promise();
-            } );
+            );
          } );
 
          beforeEach( function() {
@@ -122,7 +122,7 @@ define( [
                ax.log.info( messagesToSend[ 0 ] );
                ax.log.warn( messagesToSend[ 1 ] );
                ax.log.error( messagesToSend[ 2 ] );
-               expect( $.ajax ).not.toHaveBeenCalled();
+               expect( workingPostSpy ).not.toHaveBeenCalled();
             }
          );
 
@@ -140,7 +140,7 @@ define( [
             //////////////////////////////////////////////////////////////////////////////////////////////////
 
             it( 'submits collected messages to the service as items (R1.05)', function() {
-               expect( $.ajax ).toHaveBeenCalled();
+               expect( workingPostSpy ).toHaveBeenCalled();
                expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend );
             } );
 
@@ -162,54 +162,43 @@ define( [
                   ////////////////////////////////////////////////////////////////////////////////////////////
 
                   it( 'submits collected messages to the service (R1.05)', function() {
-                     expect( $.ajax ).toHaveBeenCalled();
+                     expect( workingPostSpy ).toHaveBeenCalled();
                      expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend );
                   } );
 
                }
             );
-         } );
 
-         /////////////////////////////////////////////////////////////////////////////////////////////////////
+            describe( 'when a navigation is initiated and the time threshold is reached', function() {
 
-         describe( 'when a navigation is initiated and the time threshold is reached', function() {
+               beforeEach( function() {
+                  ax.log.info( messagesToSend[ 0 ] );
+                  ax.log.warn( messagesToSend[ 1 ] );
+                  ax.log.error( messagesToSend[ 2 ] );
+                  testEventBus.publish( 'endLifecycleRequest', { lifecycleId: 'default' } );
+                  testEventBus.flush();
+                  controller.create( widgetContext );
+                  jasmine.clock().tick( ms( features.logging.threshold.seconds ) );
+               } );
 
-            beforeEach( function() {
-               ax.log.info( messagesToSend[ 0 ] );
-               ax.log.warn( messagesToSend[ 1 ] );
-               ax.log.error( messagesToSend[ 2 ] );
-               testEventBus.publish( 'endLifecycleRequest', { lifecycleId: 'default' } );
-               testEventBus.flush();
-               controller.create( widgetContext );
-               jasmine.clock().tick( ms( features.logging.threshold.seconds ) );
+               ///////////////////////////////////////////////////////////////////////////////////////////////
+
+               it( 'a new activity on the second page submits collected messages to the service (#7, R1.05)',
+                  function() {
+                     expect( workingPostSpy ).toHaveBeenCalled();
+                     expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend );
+                  }
+               );
             } );
 
-            //////////////////////////////////////////////////////////////////////////////////////////////////
-
-            it( 'a new activity on the second page submits collected messages to the service (#7, R1.05)',
-               function() {
-                  expect( $.ajax ).toHaveBeenCalled();
-                  expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend );
-               }
-            );
          } );
 
          /////////////////////////////////////////////////////////////////////////////////////////////////////
 
          describe( 'when a navigation is initiated after the half time of threshold', function() {
-
             beforeEach( function() {
                baseTime = new Date();
                jasmine.clock().mockDate( baseTime );
-               $.ajax = workingPostSpy = jasmine.createSpy( 'workingPostSpy' ).and.callFake( function( request ) {
-                  var method = request.type.toLowerCase();
-                  if( method === 'post' ) {
-                     ++numberOfMessageBatches;
-                     lastRequestBody = JSON.parse( request.data );
-                  }
-                  var deferred = $.Deferred().resolve(request);
-                  return deferred.promise();
-               } );
 
                ax.log.info( messagesToSend[ 0 ] );
                ax.log.warn( messagesToSend[ 1 ] );
@@ -220,87 +209,156 @@ define( [
                jasmine.clock().tick( ( retries + 1 ) * ms( retrySeconds ) );
             } );
 
-            ////////////////////////////////////////////////////////////////////////////////////////////////////////
+            //////////////////////////////////////////////////////////////////////////////////////////////////
 
-            it( 'doesn\'t submit the messages before the full time of threshold is reached (#7, R1.05)', function( done ) {
-               var halfMillisecondsThreshold = ms( features.logging.threshold.seconds / 2 );
+             it( 'doesn\'t submit the messages before the full time of threshold is reached (#7, R1.05)',
+                function(  ) {
+                  var halfMillisecondsThreshold = ms( features.logging.threshold.seconds / 2 );
+                  jasmine.clock().tick( halfMillisecondsThreshold );
+                  expect( workingPostSpy ).not.toHaveBeenCalled();
+                }
+             );
 
-               jasmine.clock().tick( halfMillisecondsThreshold );
-               expect( workingPostSpy.calls.count() ).toEqual( 0 );
-
-            } );
-
-            ////////////////////////////////////////////////////////////////////////////////////////////////////////
+            //////////////////////////////////////////////////////////////////////////////////////////////////
 
             describe( 'and after the full time of threshold is reached (#7, R1.05)', function() {
 
-               it( 'a new activity on the second page submits collected messages to the service', function( done ) {
+               it( 'a new activity on the second page submits collected messages to the service', function() {
                   var halfMillisecondsThreshold = ms( features.logging.threshold.seconds / 2 );
 
                   jasmine.clock().tick( halfMillisecondsThreshold );
-                  expect( workingPostSpy.calls.count() ).toEqual( 0 );
+                  expect( workingPostSpy ).not.toHaveBeenCalled();
 
                   testEventBus.publish( 'endLifecycleRequest', { lifecycleId: 'default' } );
                   testEventBus.flush();
                   controller.create( widgetContext );
-                  expect( workingPostSpy.calls.count() ).toEqual( 0 );
+                  expect( workingPostSpy ).not.toHaveBeenCalled();
 
                   jasmine.clock().tick( halfMillisecondsThreshold );
-                  expect( workingPostSpy.calls.count() ).toEqual( 1 );
+                  expect( workingPostSpy ).toHaveBeenCalled();
                   expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend );
                } );
             } );
 
-            ////////////////////////////////////////////////////////////////////////////////////////////////////////
-/*
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
             describe( 'and after another navigation and the full time of threshold is reached', function() {
 
                it( 'a new activity on the third page submits collected messages to the service (#7, R1.05)',
-                  function( done ) {
+                  function() {
                      var halfMillisecondsThreshold = ms( features.logging.threshold.seconds / 2 );
                      var quarterMillisecondsThreshold = ms( features.logging.threshold.seconds / 4 );
 
-                     fetchMock.flushAsync()
-                        .then( function() {
-                           jasmine.clock().tick( quarterMillisecondsThreshold );
-                           expect( fetchMock ).not.toHaveBeenCalled();
-                        } )
-                        .then( function() {
-                           testEventBus.publish( 'endLifecycleRequest', { lifecycleId: 'default' } );
-                           testEventBus.flush();
-                           controller.create( widgetContext );
-                           expect( fetchMock ).not.toHaveBeenCalled();
-                        } )
-                        .then( function() {
-                           jasmine.clock().tick( quarterMillisecondsThreshold );
-                           expect( fetchMock ).not.toHaveBeenCalled();
-                        } )
-                        .then( function() {
-                           testEventBus.publish( 'endLifecycleRequest', { lifecycleId: 'default' } );
-                           testEventBus.flush();
-                           controller.create( widgetContext );
-                           expect( fetchMock ).not.toHaveBeenCalled();
-                        } )
-                        .then( function() {
-                           jasmine.clock().tick( halfMillisecondsThreshold );
-                           expect( fetchMock ).toHaveBeenCalled();
-                           expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend );
-                        } )
-                        .then( done, done.fail );
+                     jasmine.clock().tick( quarterMillisecondsThreshold );
+                     expect( workingPostSpy ).not.toHaveBeenCalled();
+
+                     testEventBus.publish( 'endLifecycleRequest', { lifecycleId: 'default' } );
+                     testEventBus.flush();
+                     controller.create( widgetContext );
+                     expect( workingPostSpy ).not.toHaveBeenCalled();
+
+                     jasmine.clock().tick( quarterMillisecondsThreshold );
+                     expect( workingPostSpy ).not.toHaveBeenCalled();
+
+                     testEventBus.publish( 'endLifecycleRequest', { lifecycleId: 'default' } );
+                     testEventBus.flush();
+                     controller.create( widgetContext );
+                     expect( workingPostSpy ).not.toHaveBeenCalled();
+
+                     jasmine.clock().tick( halfMillisecondsThreshold );
+                     expect( workingPostSpy ).toHaveBeenCalled();
+                     expect( lastRequestBody.messages.map( text ) ).toEqual( messagesToSend );
                   }
                );
             } );
-*/
+
+            //////////////////////////////////////////////////////////////////////////////////////////////////
+
+            describe( 'with retry enabled and when disconnected before and after navigation',
+               function() {
+                  var messageToLose = 'laxar-log-activity spec: This message MUST NOT be re-sent';
+                  var messageToSentDirect = 'laxar-log-activity spec: This message MUST be sent';
+
+                  beforeEach( function() {
+                     baseTime = new Date();
+                     jasmine.clock().mockDate( baseTime );
+
+                     $.ajax = failingPostSpy = jasmine.createSpy( 'failingPostSpy' ).and.callFake( function() {
+                        var deferred = $.Deferred().reject( 'failed' );
+                        return deferred.promise();
+                     } );
+
+                     ax.log.info( messageToLose + '0' );
+                     jasmine.clock().tick( ms( thresholdSeconds ) );
+                     testEventBus.publish( 'endLifecycleRequest', { lifecycleId: 'default' } );
+                     testEventBus.flush();
+                     controller.create( widgetContext );
+                  } );
+
+                  ////////////////////////////////////////////////////////////////////////////////////////////
+
+                  it( 'retries to submit the failed messages after a configured time seconds (#7, R1.20)',
+                     function() {
+                        expect( failingPostSpy.calls.count() ).toEqual( 1 );
+
+                        jasmine.clock().tick( ms( retrySeconds ) );
+                        expect( failingPostSpy.calls.count() ).toEqual( 2 );
+
+                        jasmine.clock().tick( ms( retrySeconds ) );
+                        expect( failingPostSpy.calls.count() ).toEqual( 3 );
+
+                  } );
+
+                  ////////////////////////////////////////////////////////////////////////////////////////////
+
+                  it( 'retries to submit the failed messages only a configured number of retries (#7, R1.20)',
+                     function() {
+                        expect( failingPostSpy.calls.count() ).toEqual( 1 );
+                        jasmine.clock().tick( ms( retrySeconds ) );
+                        expect( failingPostSpy.calls.count() ).toEqual( 2 );
+                        jasmine.clock().tick( ms( retrySeconds ) * retries + 1 );
+                        expect( failingPostSpy.calls.count() ).toEqual( retries + 1 );
+                        jasmine.clock().tick( ms( retrySeconds ) );
+                        expect( failingPostSpy.calls.count() ).toEqual( retries + 1 );
+
+                     }
+                  );
+
+                  ////////////////////////////////////////////////////////////////////////////////////////////
+
+                  describe( 'and the service is available again and new messages are logged', function() {
+
+                     beforeEach( function() {
+                        $.ajax = workingPostSpy = jasmine.createSpy( 'workingPostSpy' ).and.callFake(
+                           function( request ) {
+                              var method = request.type.toLowerCase();
+                              if( method === 'post' ) {
+                                 ++numberOfMessageBatches;
+                                 lastRequestBody = JSON.parse( request.data );
+                              }
+                              var deferred = $.Deferred().resolve(request);
+                              return deferred.promise();
+                           }
+                        );
+                        ax.log.info( messageToSentDirect + '0' );
+                        ax.log.info( messageToSentDirect + '1' );
+                     } );
+
+                     /////////////////////////////////////////////////////////////////////////////////////////
+
+                     it( 'retries to submit the failed messages without the new collected ones (#7, R1.20)',
+                        function() {
+                           expect( failingPostSpy.calls.count() ).toEqual( 1 );
+                           jasmine.clock().tick( ms( retrySeconds ) );
+                           jasmine.clock().tick( ms( thresholdSeconds ) );
+                           expect( workingPostSpy.calls.count() ).toEqual( 2 );
+                        }
+                     );
+                  } );
+               }
+            );
+
          } );
-
-
-
-
-
-
-
-
-
       } );
 
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -332,7 +390,11 @@ define( [
          while( scheduledFunctions.length > 0 ) {
             var funcs = scheduledFunctions.slice( 0 );
             scheduledFunctions = [];
-            funcs.forEach( function( func ) { func(); } );
+            funcs.forEach( executeFunction );
+         }
+
+         function executeFunction( func ) {
+            func();
          }
       }
 
