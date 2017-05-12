@@ -281,7 +281,7 @@ describe( 'A laxar-log-activity', () => {
 
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
 
-   describe( 'with retry enabled and when a communication error occurs before and after navigation', () => {
+   describe( 'with retry enabled and when disconnected before and after navigation', () => {
 
       const messageToLose = 'laxar-log-activity spec: This message MUST NOT be re-sent';
       const messageToSentDirect = 'laxar-log-activity spec: This message MUST be sent';
@@ -295,12 +295,6 @@ describe( 'A laxar-log-activity', () => {
          axEventBus.publish( 'endLifecycleRequest', { lifecycleId: 'default' } );
          axEventBus.flush();
          logActivity.create( ...injections );
-      } );
-
-      ////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-      afterEach( () => {
-         jasmine.clock().tick( ( retries + 1 ) * ms( retrySeconds ) );
       } );
 
       ////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -332,7 +326,10 @@ describe( 'A laxar-log-activity', () => {
                expect( fetchMock.calls.count() ).toEqual( 2 );
                return fetchMock.flushAsync();
             } )
-            .then( () => awaitRetries( ms( retrySeconds ), retries, fetchMock ) )
+            .then( () => {
+               jasmine.clock().tick( ( retries + 20 ) * ms( retrySeconds ) );
+               return fetchMock.flushAsync();
+            } )
             .then( () => {
                expect( fetchMock.calls.count() ).toEqual( retries + 1 );
                return fetchMock.flushAsync();

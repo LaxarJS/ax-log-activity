@@ -9,7 +9,10 @@ import { string } from 'laxar';
 let lastMessageId = -1;
 let buffer = [];
 let resendBuffer = [];
+let retryTimeout;
+let retryMilliseconds;
 let nextSubmit = null;
+let logResourceUrl;
 
 const formatMessage = createMessageFormatter();
 
@@ -26,7 +29,7 @@ export const injections =
 export function create( context, configuration, eventBus, features, globalLog, log ) {
    if( !features.logging.enabled ) { return; }
 
-   const logResourceUrl = configuration.get( 'widgets.laxar-log-activity.resourceUrl', null );
+   logResourceUrl = configuration.get( 'widgets.laxar-log-activity.resourceUrl', null );
    if( !logResourceUrl ) {
       log.error( 'resourceUrl not configured' );
       return;
@@ -42,13 +45,19 @@ export function create( context, configuration, eventBus, features, globalLog, l
    const { threshold, retry } = features.logging;
    const ms = s => 1000 * s;
 
+
+   if( context.features.logging.retry.enabled ) {
+      if( resendBuffer.length > 0 ) {
+         scheduleNextResend();
+      }
+   }
+
    ///////////////////////////////////////////////////////////////////////////////////////////////////////////
    // Collect log messages and submit them periodically:
 
    globalLog.addLogChannel( handleLogItem );
-   let retryTimeout;
    let timeout;
-
+   window.clearTimeout( retryTimeout );
    const dateNow = Date.now();
    if( nextSubmit && dateNow >= nextSubmit) {
       submit();
@@ -57,10 +66,11 @@ export function create( context, configuration, eventBus, features, globalLog, l
       scheduleNextSubmit( dateNow );
    }
 
+
    eventBus.subscribe( 'endLifecycleRequest', () => {
       globalLog.removeLogChannel( handleLogItem );
       window.clearTimeout( timeout );
-      window.clearTimeout( ms( retry.seconds ) );
+      window.clearTimeout( retryTimeout );
       window.removeEventListener( 'beforeunload', handleBeforeUnload );
    } );
 
@@ -160,8 +170,7 @@ export function create( context, configuration, eventBus, features, globalLog, l
             .catch( () => {
                if( retry.enabled && !synchronously ) {
                   resendBuffer.push( { payload, retriesLeft: retry.retries } );
-                  window.clearTimeout( retryTimeout );
-                  retryTimeout = window.setTimeout( resendMessages, ms( retry.seconds ) );
+                  scheduleNextResend();
                }
             } );
       }
@@ -173,13 +182,14 @@ export function create( context, configuration, eventBus, features, globalLog, l
       window.clearTimeout( retryTimeout );
       resendBuffer = resendBuffer.filter( item => item.retriesLeft > 0 );
       if( resendBuffer.length > 0 ) {
-         retryTimeout = window.setTimeout( resendMessages, ms( retry.seconds ) );
+         retryTimeout = window.setTimeout( resendMessages, retryMilliseconds );
       }
       resendBuffer.forEach( item => {
+         --item.retriesLeft;
          postTo( logResourceUrl, item.payload, synchronously )
             .then(
                () => { item.retriesLeft = 0; },
-               () => { --item.retriesLeft; }
+               () => {}
             );
       } );
    }
@@ -218,6 +228,14 @@ export function create( context, configuration, eventBus, features, globalLog, l
          timeout = window.setTimeout( submit, ms( threshold.seconds ) );
          nextSubmit = dateNow + ms( threshold.seconds );
       }
+   }
+
+   ///////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+   function scheduleNextResend() {
+      window.clearTimeout( retryTimeout );
+      retryMilliseconds = ms( retry.seconds );
+      retryTimeout = window.setTimeout( resendMessages, retryMilliseconds );
    }
 }
 
