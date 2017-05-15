@@ -5,7 +5,7 @@
  */
 import * as logActivity from '../laxar-log-activity';
 import { object } from 'laxar';
-import { text, ms, awaitRetries } from './helper-functions';
+import { text, ms } from './helper-functions';
 
 import {
    createAxConfigurationMock,

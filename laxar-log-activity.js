@@ -21,6 +21,8 @@ export function clearBuffer() {
    buffer = [];
    resendBuffer = [];
    nextSubmit = null;
+   retryTimeout = null;
+   retryMilliseconds = null;
 }
 
 export const injections =
@@ -45,8 +47,8 @@ export function create( context, configuration, eventBus, features, globalLog, l
    const { threshold, retry } = features.logging;
    const ms = s => 1000 * s;
 
-
-   if( context.features.logging.retry.enabled ) {
+   window.clearTimeout( retryTimeout );
+   if( features.logging.retry.enabled ) {
       if( resendBuffer.length > 0 ) {
          scheduleNextResend();
       }
@@ -57,7 +59,7 @@ export function create( context, configuration, eventBus, features, globalLog, l
 
    globalLog.addLogChannel( handleLogItem );
    let timeout;
-   window.clearTimeout( retryTimeout );
+
    const dateNow = Date.now();
    if( nextSubmit && dateNow >= nextSubmit) {
       submit();
