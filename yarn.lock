@@ -2685,11 +2685,17 @@ laxar-uikit@^2.0.0-alpha.5:
     font-awesome "~4.7.0"
     moment "^2.17.1"
 
-laxar@^2.0.0, laxar@^2.0.0-alpha.16:
+laxar@^2.0.0-alpha.16:
   version "2.0.0-alpha.18"
   resolved "https://registry.yarnpkg.com/laxar/-/laxar-2.0.0-alpha.18.tgz#935375a9563ea861d44422b0efd5d97da537cffa"
   dependencies:
     page "~1.7.1"
+
+laxar@^laxar@^2.0.0-alpha.18:
+  version "2.0.0-rc.2"
+  resolved "https://registry.yarnpkg.com/laxar/-/laxar-2.0.0-rc.2.tgz#d352b54b0cbe850fb68dd50df2fefb1ae7edb48c"
+  dependencies:
+    navigo "4.3.6"
 
 lazy-cache@^1.0.3:
   version "1.0.4"
@@ -2904,6 +2910,10 @@ nan@^2.3.0:
 natural-compare@^1.4.0:
   version "1.4.0"
   resolved "https://registry.yarnpkg.com/natural-compare/-/natural-compare-1.4.0.tgz#4abebfeed7541f2c27acfb29bdbbd15c8d5ba4f7"
+
+navigo@4.3.6:
+  version "4.3.6"
+  resolved "https://registry.yarnpkg.com/navigo/-/navigo-4.3.6.tgz#064f3167933e03b1b42a225d19f21606c24ab5e3"
 
 ncname@1.0.x:
   version "1.0.0"
