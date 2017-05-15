@@ -12,7 +12,9 @@ function karmaConfig() {
       `spec/${pkg.name}.spec.js`,
       `spec/${pkg.name}-navigation-tests.spec.js` ], {
          context: __dirname,
-         rules: require( './webpack.config' )[ 0 ].module.rules
+         module: {
+            rules: require( './webpack.config' )[ 0 ].module.rules
+         }
       }
    );
 }
