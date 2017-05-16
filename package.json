@@ -29,16 +29,16 @@
     "eslint-config-laxarjs": "^0.3.0",
     "html-loader": "^0.4.5",
     "karma": "^1.5.0",
-    "laxar": "^2.0.0",
-    "laxar-infrastructure": "^2.0.0",
-    "laxar-loader": "^2.0.0",
-    "laxar-mocks": "^2.0.0",
-    "laxar-uikit": "^2.0.0",
+    "laxar": "^2.0.0-rc.3",
+    "laxar-infrastructure": "^2.0.0-rc.1",
+    "laxar-loader": "^2.0.0-rc.3",
+    "laxar-mocks": "^2.0.0-rc.2",
+    "laxar-uikit": "^2.0.0-rc.1",
     "webpack": "^2.2.1",
     "webpack-dev-server": "^2.4.1"
   },
   "peerDependencies": {
-    "laxar": "^2.0.0"
+    "laxar": "^2.0.0-rc.3"
   },
   "bugs": {
     "url": "https://github.com/LaxarJS/ax-log-activity/issues",
