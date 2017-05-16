@@ -20,6 +20,13 @@ const webpack = require( 'laxar-infrastructure' ).webpack( {
             loader: 'babel-loader'
          },
          {
+            test: /\.js$/,
+            include: [
+               path.resolve( __dirname, 'node_modules/laxar' )
+            ],
+            loader: 'babel-loader'
+         },
+         {
             test: /\.spec.js$/,
             exclude: [
                path.resolve( __dirname, 'node_modules' )
@@ -32,5 +39,5 @@ const webpack = require( 'laxar-infrastructure' ).webpack( {
 
 module.exports = [
    webpack.library(),
-   webpack.browserSpec( [ `spec/${pkg.name}.spec.js` ] )
+   webpack.browserSpec( [ `spec/${pkg.name}.spec.js`, `spec/${pkg.name}-navigation-tests.spec.js` ] )
 ];
