@@ -33,6 +33,8 @@ define( [
          buffer_.length = 0;
          resendBuffer = [];
          nextSubmit = null;
+         retryTimeout = null;
+         retryMilliseconds = null;
       };
 
       if( !context.features.logging.enabled ) {
