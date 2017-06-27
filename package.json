@@ -8,7 +8,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/LaxarJS/ax-log-activity.git"
+    "url": "https://github.com/LaxarJS/laxar-log-activity.git"
   },
   "scripts": {
     "prepublish": "npm run dist",
@@ -41,7 +41,7 @@
     "laxar": "^2.0.0-rc.3"
   },
   "bugs": {
-    "url": "https://github.com/LaxarJS/ax-log-activity/issues",
+    "url": "https://github.com/LaxarJS/laxar-log-activity/issues",
     "email": "info@laxarjs.org"
   }
 }
