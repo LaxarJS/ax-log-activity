@@ -1,6 +1,6 @@
 {
   "name": "laxar-log-activity",
-  "version": "4.0.0-alpha.1",
+  "version": "4.0.0",
   "description": "LaxarJS v2 plain activity that collects log messages and submits them to a log service periodically and before page navigation",
   "homepage": "http://laxarjs.org",
   "main": "laxar-log-activity.js",
@@ -29,16 +29,16 @@
     "eslint-config-laxarjs": "^0.3.0",
     "html-loader": "^0.4.5",
     "karma": "^1.5.0",
-    "laxar": "^2.0.0-rc.3",
-    "laxar-infrastructure": "^2.0.0-rc.1",
-    "laxar-loader": "^2.0.0-rc.3",
-    "laxar-mocks": "^2.0.0-rc.2",
-    "laxar-uikit": "^2.0.0-rc.1",
+    "laxar": "^2.0.0",
+    "laxar-infrastructure": "^2.0.0",
+    "laxar-loader": "^2.0.0",
+    "laxar-mocks": "^2.0.0",
+    "laxar-uikit": "^2.0.0",
     "webpack": "^2.2.1",
     "webpack-dev-server": "^2.4.1"
   },
   "peerDependencies": {
-    "laxar": "^2.0.0-rc.3"
+    "laxar": "^2.0.0"
   },
   "bugs": {
     "url": "https://github.com/LaxarJS/laxar-log-activity/issues",

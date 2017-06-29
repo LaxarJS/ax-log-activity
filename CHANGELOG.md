@@ -2,6 +2,9 @@
 
 ## Last Changes
 
+
+## v4.0.0
+
 - [#8](https://github.com/LaxarJS/laxar-log-activity/issues/8): renamed repository to match artifact
 
 
